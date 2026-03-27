@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% set hide_shell_header = true %}
+{% set fluid_layout = true %}
+{% set active_page = 'dashboard' %}
+{% block content %}
+<section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
+  {% include 'components/dashboard_sidebar.html' %}
+
+  <div class="space-y-4">
+    <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div class="relative w-full md:max-w-sm">
+        <input type="search" placeholder="Search" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-400" />
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600">Last 30 days</button>
+        <button class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600">Export</button>
+      </div>
+    </div>
+
+    <article class="overflow-hidden rounded-2xl bg-gradient-to-r from-teal-900 via-teal-800 to-cyan-900 p-5 text-white shadow-lg">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p class="text-sm text-teal-100">Total Balance</p>
+          <p class="mt-1 text-4xl font-semibold tracking-tight">$320,845.20</p>
+          <p class="mt-2 text-sm text-emerald-300">+15.8% this month</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400">+ Add</button>
+          <button class="rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/25">Send</button>
+          <button class="rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/25">Request</button>
+        </div>
+      </div>
+    </article>
+
+    <section class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-900">Cash Flow</h2>
+        <a href="/audit/logs" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Manage</a>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-[1fr_220px]">
+        <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+          <div class="flex h-44 items-end gap-2">
+            <div class="h-12 w-4 rounded-t bg-teal-700"></div>
+            <div class="h-20 w-4 rounded-t bg-teal-700"></div>
+            <div class="h-16 w-4 rounded-t bg-teal-700"></div>
+            <div class="h-9 w-4 rounded-t bg-emerald-500"></div>
+            <div class="h-[60px] w-4 rounded-t bg-teal-700"></div>
+            <div class="h-24 w-4 rounded-t bg-teal-700"></div>
+            <div class="h-[120px] w-4 rounded-t bg-teal-700"></div>
+            <div class="h-11 w-4 rounded-t bg-emerald-500"></div>
+            <div class="h-[72px] w-4 rounded-t bg-teal-700"></div>
+            <div class="h-10 w-4 rounded-t bg-emerald-500"></div>
+            <div class="h-8 w-4 rounded-t bg-emerald-500"></div>
+            <div class="h-16 w-4 rounded-t bg-teal-700"></div>
+            <div class="h-14 w-4 rounded-t bg-emerald-500"></div>
+            <div class="h-[84px] w-4 rounded-t bg-teal-700"></div>
+            <div class="h-12 w-4 rounded-t bg-emerald-500"></div>
+            <div class="h-7 w-4 rounded-t bg-emerald-500"></div>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div class="rounded-xl border border-slate-200 p-4">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Income</p>
+            <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-900">$12,378.20</p>
+            <p class="mt-1 text-xs font-medium text-emerald-600">+45.0%</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 p-4">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Expense</p>
+            <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-900">$5,788.21</p>
+            <p class="mt-1 text-xs font-medium text-rose-600">-12.5%</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-3 md:grid-cols-3">
+      <article class="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Business Account</p>
+        <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-900">$8,672.20</p>
+        <p class="mt-1 text-xs font-medium text-emerald-600">+16.0%</p>
+      </article>
+      <article class="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Security Status</p>
+        <p class="mt-2 text-lg font-semibold text-slate-900">2FA {{ 'Enabled' if user.two_factor_enabled else 'Disabled' }}</p>
+        <a href="/2fa/setup" class="mt-2 inline-flex text-xs font-semibold text-emerald-700 hover:underline">Configure 2FA</a>
+      </article>
+      <article class="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Active Sessions</p>
+        <p class="mt-2 text-lg font-semibold text-slate-900">Manage your devices</p>
+        <a href="/sessions" class="mt-2 inline-flex text-xs font-semibold text-emerald-700 hover:underline">Open sessions</a>
+      </article>
+    </section>
+  </div>
+</section>
+{% endblock %}

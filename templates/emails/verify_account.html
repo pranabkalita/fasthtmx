@@ -1,0 +1,18 @@
+{% extends "emails/base.html" %}
+{% block email_content %}
+<h1 class="title">Verify Your Email</h1>
+<p class="body">
+  Welcome to {{ product_name }}{% if user_name %}, {{ user_name }}{% endif %}. Confirm your email address to activate your account and access your dashboard.
+</p>
+<div class="cta-wrap">
+  <a class="cta" href="{{ action_url }}">Verify Email</a>
+</div>
+<div class="meta">
+  This verification link expires in {{ expires_hours }} hours.<br />
+  If the button does not work, copy and paste this URL into your browser:<br />
+  <a href="{{ action_url }}">{{ action_url }}</a>
+</div>
+<p class="body" style="margin-top:16px;">
+  If you did not create an account, you can safely ignore this email.
+</p>
+{% endblock %}

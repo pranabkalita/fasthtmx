@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="mx-auto w-full max-w-lg px-4 py-8">
+  <div class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+    <h1 class="text-2xl font-bold tracking-tight text-slate-900">Create Account</h1>
+    <p class="mt-1 mb-6 text-sm text-slate-500">Start with a verified, secure account.</p>
+
+    <form action="/register" method="post" class="space-y-4">
+      <label class="flex flex-col gap-1">
+        <span class="text-sm font-semibold text-slate-700">Full Name</span>
+        <input type="text" name="full_name"
+               class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-sm font-semibold text-slate-700">Email</span>
+        <input type="email" name="email" required
+               class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-sm font-semibold text-slate-700">Password</span>
+        <input type="password" name="password" required
+               class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
+      </label>
+
+      <button type="submit"
+              class="mt-1 w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 active:scale-[0.99]">
+        Create Account
+      </button>
+    </form>
+
+    <div class="mt-4">
+      <a href="/login" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">Back to login</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

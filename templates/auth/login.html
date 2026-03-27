@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="mx-auto w-full max-w-lg px-4 py-8">
+  <div class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+    <h1 class="text-2xl font-bold tracking-tight text-slate-900">Sign In</h1>
+    <p class="mt-1 mb-6 text-sm text-slate-500">Secure access for verified accounts.</p>
+
+    <form action="/login" method="post" class="space-y-4">
+      <label class="flex flex-col gap-1">
+        <span class="text-sm font-semibold text-slate-700">Email</span>
+        <input type="email" name="email" required
+               class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-sm font-semibold text-slate-700">Password</span>
+        <input type="password" name="password" required
+               class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-sm font-semibold text-slate-700">
+          2FA or Backup Code
+          <span class="font-normal text-slate-400">(required only if 2FA is enabled)</span>
+        </span>
+        <input type="text" name="two_factor_code" placeholder="123456 or ABCD-EFGH"
+               class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
+        <p class="text-xs text-slate-500">
+          Password is always required first. If your account has 2FA enabled, enter your authenticator code or a backup code.
+        </p>
+      </label>
+
+      <button type="submit"
+              class="mt-1 w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 active:scale-[0.99]">
+        Sign In
+      </button>
+    </form>
+
+    <div class="mt-4 flex items-center justify-between gap-4">
+      <a href="/register" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">Create account</a>
+      <a href="/forgot-password" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">Forgot password</a>
+    </div>
+
+    <div class="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+      <p class="mb-3 text-xs text-slate-500">Did not receive a verification email?</p>
+      <form action="/verify-email/resend" method="post" class="flex items-center gap-2">
+        <input type="email" name="email" required placeholder="your-email@example.com"
+               class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
+        <button type="submit"
+                class="whitespace-nowrap rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+          Resend
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

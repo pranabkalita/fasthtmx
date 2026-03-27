@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% set hide_shell_header = true %}
+{% set fluid_layout = true %}
+{% set active_page = 'sessions' %}
+{% block content %}
+<section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
+  {% include 'components/dashboard_sidebar.html' %}
+
+  <section class="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+    <div class="mb-4 flex items-center justify-between">
+      <h1 class="text-base font-semibold text-slate-900">Active Sessions</h1>
+      <form method="post" action="/sessions/logout-all">
+        <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Logout All Devices</button>
+      </form>
+    </div>
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+      <table class="w-full text-left text-sm">
+      <thead class="text-slate-600">
+        <tr>
+          <th class="bg-slate-50 px-4 py-3">IP</th>
+          <th class="bg-slate-50 px-4 py-3">Agent</th>
+          <th class="bg-slate-50 px-4 py-3">Created</th>
+          <th class="bg-slate-50 px-4 py-3">Expires</th>
+          <th class="bg-slate-50 px-4 py-3 text-right">Action</th>
+        </tr>
+      </thead>
+      <tbody class="text-slate-800">
+        {% for session in sessions %}
+          <tr class="border-t border-slate-100">
+            <td class="px-4 py-3">{{ session.ip_address or '-' }}</td>
+            <td class="px-4 py-3">{{ session.user_agent or '-' }}</td>
+            <td class="px-4 py-3">{{ session.created_at }}</td>
+            <td class="px-4 py-3">{{ session.expires_at }}</td>
+            <td class="px-4 py-3 text-right">
+              {% if session.id == current_session_id %}
+                <span class="text-xs text-slate-500">Current</span>
+              {% else %}
+                <form method="post" action="/sessions/{{ session.id }}/revoke" class="inline">
+                  <button type="submit" class="rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium hover:bg-slate-50">Revoke</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td class="px-4 py-4" colspan="5">No active sessions.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

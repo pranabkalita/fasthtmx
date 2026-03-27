@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% set hide_shell_header = true %}
+{% set fluid_layout = true %}
+{% set active_page = 'two-factor' %}
+{% block content %}
+<section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
+  {% include 'components/dashboard_sidebar.html' %}
+
+  <section class="mx-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+    <h1 class="mb-2 text-base font-semibold text-slate-900">Backup Recovery Codes</h1>
+    <p class="mb-4 text-sm text-slate-600">
+      Save these one-time codes now. Each code can be used once if you cannot access your authenticator app.
+    </p>
+
+    <div class="grid gap-2 sm:grid-cols-2">
+      {% for code in backup_codes %}
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-mono text-slate-800">{{ code }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-4 flex justify-end">
+      <a href="/dashboard" class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500">Continue to Dashboard</a>
+    </div>
+  </section>
+</section>
+</section>
+{% endblock %}

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }} · FastAuth</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    body { font-family: "Manrope", "Segoe UI", "Helvetica Neue", sans-serif; }
+    #top-progress { position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 80; background: #0f6d58; opacity: 0; transition: opacity 120ms ease; }
+    #top-progress.active { opacity: 1; animation: progress-grow 1.2s ease-out forwards; }
+    #top-progress.done { width: 100% !important; transition: width 120ms ease-out, opacity 120ms ease-out; opacity: 0; }
+    @keyframes progress-grow { 0% { width: 0; } 70% { width: 72%; } 100% { width: 84%; } }
+  </style>
+  <script>
+    function readCookie(name) {
+      const key = `${name}=`;
+      const parts = document.cookie.split(';');
+      for (const part of parts) {
+        const value = part.trim();
+        if (value.startsWith(key)) {
+          return decodeURIComponent(value.substring(key.length));
+        }
+      }
+      return '';
+    }
+
+    function ensureFormCsrfToken(form) {
+      const token = readCookie('csrf_token');
+      if (!token) {
+        return;
+      }
+      let field = form.querySelector('input[name="csrf_token"]');
+      if (!field) {
+        field = document.createElement('input');
+        field.type = 'hidden';
+        field.name = 'csrf_token';
+        form.appendChild(field);
+      }
+      field.value = token;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('form').forEach((form) => ensureFormCsrfToken(form));
+    });
+
+    document.body.addEventListener('submit', (event) => {
+      const form = event.target;
+      if (form && form.tagName === 'FORM') {
+        ensureFormCsrfToken(form);
+      }
+    }, true);
+
+    document.body.addEventListener('htmx:configRequest', (event) => {
+      const token = readCookie('csrf_token');
+      if (token) {
+        event.detail.headers['X-CSRF-Token'] = token;
+      }
+    });
+  </script>
+</head>
+<body>
+  <div id="top-progress" aria-hidden="true"></div>
+
+  {% if not hide_shell_header %}
+  <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur">
+    <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-xs font-extrabold text-white">FA</span>
+        <div>
+          <p class="text-sm font-extrabold tracking-tight text-slate-900">FastAuth</p>
+          <p class="text-[11px] text-slate-500">Secure identity platform</p>
+        </div>
+      </a>
+
+      <nav class="hidden items-center gap-1 sm:flex">
+        <a href="/" class="rounded-lg px-3 py-2 text-sm font-medium {{ 'bg-emerald-50 text-emerald-700' if request.url.path == '/' else 'text-slate-600 hover:bg-slate-100' }}">Home</a>
+        {% if auth_user %}
+          <a href="/dashboard" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Dashboard</a>
+          <form action="/logout" method="post">
+            <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Logout</button>
+          </form>
+        {% else %}
+          <a href="/login" class="rounded-lg px-3 py-2 text-sm font-medium {{ 'bg-emerald-50 text-emerald-700' if request.url.path == '/login' else 'text-slate-600 hover:bg-slate-100' }}">Sign In</a>
+          <a href="/register" class="rounded-lg px-3 py-2 text-sm font-medium {{ 'bg-emerald-50 text-emerald-700' if request.url.path == '/register' else 'text-slate-600 hover:bg-slate-100' }}">Create Account</a>
+        {% endif %}
+      </nav>
+
+      <div class="flex items-center gap-2 sm:hidden">
+        {% if auth_user %}
+          <a href="/dashboard" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700">Dashboard</a>
+          <form action="/logout" method="post">
+            <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">Logout</button>
+          </form>
+        {% else %}
+          <a href="/login" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700">Sign In</a>
+          <a href="/register" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">Join</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+  {% endif %}
+
+  <main class="{% if fluid_layout %}w-[calc(100%-1.5rem)] max-w-none mx-auto my-3{% else %}w-[min(1120px,calc(100%-2rem))] mx-auto my-6{% endif %}">
+    {% if success %}
+      <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ success }}</div>
+    {% endif %}
+    {% if error %}
+      <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ error }}</div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="/static/js/progress.js?v=20260327b"></script>
+</body>
+</html>

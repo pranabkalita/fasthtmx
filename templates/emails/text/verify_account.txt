@@ -1,0 +1,12 @@
+Welcome to {{ product_name }}{% if user_name %}, {{ user_name }}{% endif %}.
+
+Verify your email address to activate your account:
+{{ action_url }}
+
+This link expires in {{ expires_hours }} hours.
+
+If you did not create an account, you can safely ignore this email.
+
+{{ product_name }}
+{{ website_url }}
+Support: {{ support_email }}

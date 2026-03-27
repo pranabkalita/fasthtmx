@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% set hide_shell_header = true %}
+{% set fluid_layout = true %}
+{% set active_page = 'profile' %}
+{% block content %}
+<section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
+  {% include 'components/dashboard_sidebar.html' %}
+
+  <div class="space-y-4">
+  <article id="change-password" class="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+    <h2 class="mb-4 text-base font-semibold text-slate-900">Profile</h2>
+    <form action="/dashboard/profile/update" method="post" class="grid gap-3 md:grid-cols-2">
+      <label class="block text-sm">
+        <span class="mb-1 block text-slate-700">Name</span>
+        <input type="text" name="full_name" value="{{ user.full_name }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block text-slate-700">Email</span>
+        <input type="email" name="email" value="{{ user.email }}" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </label>
+      <div class="md:col-span-2">
+        <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">Save Profile</button>
+      </div>
+    </form>
+  </article>
+
+  <article class="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+    <h2 class="mb-4 text-base font-semibold text-slate-900">Change Password</h2>
+    <form action="/password/change" method="post" class="space-y-2">
+      <input type="password" name="current_password" placeholder="Current password" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      <input type="password" name="new_password" placeholder="New password" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Update Password</button>
+    </form>
+
+    <hr class="my-4 border-slate-200" />
+
+    <h2 class="mb-3 text-base font-semibold text-slate-900">2FA</h2>
+    {% if user.two_factor_enabled %}
+      <form action="/2fa/disable" method="post" class="space-y-2">
+        <input type="password" name="password" placeholder="Confirm password" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Disable 2FA</button>
+      </form>
+    {% else %}
+      <a href="/2fa/setup" class="text-sm font-semibold text-emerald-700 hover:underline">Enable 2FA</a>
+    {% endif %}
+
+    <hr class="my-4 border-slate-200" />
+
+    <h2 class="mb-3 text-base font-semibold text-rose-700">Deactivate Account</h2>
+    <form action="/account/deactivate" method="post" class="space-y-2">
+      <input type="password" name="password" placeholder="Confirm password" required class="w-full rounded-lg border border-rose-300 px-3 py-2 text-sm" />
+      <button type="submit" class="rounded-lg border border-rose-400 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50">Deactivate</button>
+    </form>
+  </article>
+  </div>
+</section>
+{% endblock %}

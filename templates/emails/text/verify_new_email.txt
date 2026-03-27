@@ -1,0 +1,12 @@
+Your account email was updated.
+
+Verify your new email address:
+{{ action_url }}
+
+This link expires in {{ expires_hours }} hours.
+
+If you did not make this change, contact support immediately.
+
+{{ product_name }}
+{{ website_url }}
+Support: {{ support_email }}

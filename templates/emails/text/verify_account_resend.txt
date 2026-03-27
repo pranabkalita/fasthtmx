@@ -1,0 +1,12 @@
+You requested a new verification link for your {{ product_name }} account.
+
+Verify your email address:
+{{ action_url }}
+
+This link expires in {{ expires_hours }} hours.
+
+If you did not request this email, no action is required.
+
+{{ product_name }}
+{{ website_url }}
+Support: {{ support_email }}
