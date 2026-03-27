@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.templating import Jinja2Templates
 
 from app.config import get_settings
 from app.db.database import get_db_session
@@ -25,9 +24,10 @@ from app.services.auth_service import (
     revoke_session_by_id,
     verify_totp,
 )
+from app.services.flash_service import add_toast
+from app.templating import templates
 
 router = APIRouter(tags=["security"])
-templates = Jinja2Templates(directory="templates")
 settings = get_settings()
 
 
@@ -42,6 +42,7 @@ async def logout(
         await revoke_session(db, raw_session)
 
     await write_audit_log(db, action="LOGOUT", target="session", user_id=current_user.id, request=request)
+    add_toast(request, type="success", message="You have been logged out.")
     redirect = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     redirect.delete_cookie(settings.session_cookie_name)
     return redirect
@@ -111,10 +112,12 @@ async def revoke_single_session(
     await revoke_session_by_id(db, current_user.id, session_id)
 
     if is_current_session:
+        add_toast(request, type="success", message="Current session revoked. Please sign in again.")
         redirect = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
         redirect.delete_cookie(settings.session_cookie_name)
         return redirect
 
+    add_toast(request, type="success", message="Session revoked.")
     return RedirectResponse(url="/sessions", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -127,6 +130,7 @@ async def logout_all_devices(
     await revoke_all_sessions(db, current_user.id)
     await write_audit_log(db, action="LOGOUT_ALL", target="session", user_id=current_user.id, request=request)
 
+    add_toast(request, type="success", message="All sessions were signed out.")
     redirect = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     redirect.delete_cookie(settings.session_cookie_name)
     return redirect
@@ -168,6 +172,7 @@ async def enable_2fa(
     db: AsyncSession = Depends(get_db_session),
 ) -> HTMLResponse:
     if not verify_totp(secret, code):
+        add_toast(request, type="error", message="Invalid code. Enter a current authenticator code.")
         return RedirectResponse(url="/2fa/setup", status_code=status.HTTP_303_SEE_OTHER)
 
     current_user.two_factor_enabled = True
@@ -193,15 +198,32 @@ async def disable_2fa(
     password: str = Form(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> RedirectResponse:
+) -> HTMLResponse:
     if not verify_password(password, current_user.password_hash):
-        return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)
+        return templates.TemplateResponse(
+            request,
+            "dashboard/profile.html",
+            {
+                "title": "Profile",
+                "user": current_user,
+                "error": "Password is incorrect. 2FA was not disabled.",
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     current_user.two_factor_enabled = False
     current_user.two_factor_secret = None
     await db.commit()
     await write_audit_log(db, action="2FA_DISABLED", target="user", user_id=current_user.id, request=request)
-    return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse(
+        request,
+        "dashboard/profile.html",
+        {
+            "title": "Profile",
+            "user": current_user,
+            "success": "2FA has been disabled for your account.",
+        },
+    )
 
 
 @router.post("/password/change", response_class=HTMLResponse)
@@ -233,6 +255,7 @@ async def change_password(
     await revoke_all_sessions(db, current_user.id)
     await write_audit_log(db, action="PASSWORD_CHANGED", target="user", user_id=current_user.id, request=request)
 
+    add_toast(request, type="success", message="Password changed. Please sign in again.")
     redirect = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     redirect.delete_cookie(settings.session_cookie_name)
     return redirect
@@ -246,7 +269,16 @@ async def deactivate_account(
     db: AsyncSession = Depends(get_db_session),
 ) -> RedirectResponse:
     if not verify_password(password, current_user.password_hash):
-        return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)
+        return templates.TemplateResponse(
+            request,
+            "dashboard/profile.html",
+            {
+                "title": "Profile",
+                "user": current_user,
+                "error": "Password is incorrect. Account was not deactivated.",
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     current_user.is_active = False
     current_user.deleted_at = datetime.now(UTC)
@@ -254,6 +286,7 @@ async def deactivate_account(
     await revoke_all_sessions(db, current_user.id)
     await write_audit_log(db, action="ACCOUNT_DEACTIVATED", target="user", user_id=current_user.id, request=request)
 
+    add_toast(request, type="success", message="Account deactivated successfully.")
     redirect = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     redirect.delete_cookie(settings.session_cookie_name)
     return redirect

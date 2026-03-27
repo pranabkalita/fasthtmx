@@ -7,7 +7,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.templating import Jinja2Templates
 
 from app.cache import get_redis
 from app.config import get_settings
@@ -27,6 +26,8 @@ from app.services.auth_service import (
     verify_totp,
 )
 from app.services.email_service import send_templated_email
+from app.services.flash_service import add_toast
+from app.templating import templates
 
 from .auth_common import (
     apply_rate_limits,
@@ -36,7 +37,6 @@ from .auth_common import (
 )
 
 router = APIRouter(tags=["auth"])
-templates = Jinja2Templates(directory="templates")
 settings = get_settings()
 
 REGISTER_RULE = LimitRule(key_prefix="rl:register:ip", limit=5, window_seconds=60)
@@ -268,6 +268,7 @@ async def login(
         user_agent=request.headers.get("user-agent", ""),
     )
     await write_audit_log(db, action="LOGIN", target="session", user_id=user.id, request=request)
+    add_toast(request, type="success", message="Welcome back.")
 
     is_htmx = request.headers.get("HX-Request") == "true"
     response = (

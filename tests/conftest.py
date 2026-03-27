@@ -83,6 +83,7 @@ def test_client(mock_redis, mock_send_email):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from fastapi.staticfiles import StaticFiles
+    from starlette.middleware.sessions import SessionMiddleware
     from app.cache import get_redis
     from app.db.database import get_db_session, AsyncSessionLocal
     from app.config import get_settings
@@ -92,6 +93,12 @@ def test_client(mock_redis, mock_send_email):
     
     # Create a test app without CSRF middleware (middleware consumes body, breaks form parsing)
     test_app = FastAPI(title=settings_local.app_name, debug=settings_local.debug)
+    test_app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings_local.secret_key,
+        same_site="lax",
+        https_only=not settings_local.debug,
+    )
     
     # Mount static files
     test_app.mount("/static", StaticFiles(directory="static"), name="static")

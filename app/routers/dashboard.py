@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.templating import Jinja2Templates
 from urllib.parse import quote_plus
 
 from app.config import get_settings
@@ -13,9 +12,9 @@ from app.db.models import User
 from app.services.auth_service import create_email_verification_token
 from app.services.audit_service import write_audit_log
 from app.services.email_service import send_templated_email
+from app.templating import templates
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-templates = Jinja2Templates(directory="templates")
 settings = get_settings()
 
 

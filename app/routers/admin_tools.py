@@ -4,15 +4,14 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from starlette.templating import Jinja2Templates
 
 from app.config import get_settings
 from app.db.models import User
 from app.dependencies import get_admin_user
 from app.services.email_service import render_email_bodies
+from app.templating import templates
 
 router = APIRouter(tags=["admin-tools"])
-templates = Jinja2Templates(directory="templates")
 settings = get_settings()
 
 EMAIL_PREVIEW_TEMPLATES = (

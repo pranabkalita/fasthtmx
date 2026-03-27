@@ -4,15 +4,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.cache import redis_client
 from app.config import get_settings
 from app.middleware.csrf import csrf_dispatch
 from app.routers import admin_tools, audit, auth, dashboard, security
+from app.templating import templates
 
 settings = get_settings()
-templates = Jinja2Templates(directory="templates")
 
 
 @asynccontextmanager
@@ -22,6 +22,12 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    same_site="lax",
+    https_only=not settings.debug,
+)
 app.middleware("http")(csrf_dispatch)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")

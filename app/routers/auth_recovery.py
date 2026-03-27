@@ -7,7 +7,6 @@ from fastapi.responses import HTMLResponse
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.templating import Jinja2Templates
 
 from app.cache import get_redis
 from app.config import get_settings
@@ -17,11 +16,11 @@ from app.rate_limit import LimitRule, safe_identity
 from app.services.audit_service import write_audit_log
 from app.services.auth_service import consume_reset_token, create_reset_token, revoke_all_sessions
 from app.services.email_service import send_templated_email
+from app.templating import templates
 
 from .auth_common import apply_rate_limits, get_ip, redirect_authenticated_user
 
 router = APIRouter(tags=["auth"])
-templates = Jinja2Templates(directory="templates")
 settings = get_settings()
 
 FORGOT_RULE = LimitRule(key_prefix="rl:forgot:ip", limit=5, window_seconds=60)

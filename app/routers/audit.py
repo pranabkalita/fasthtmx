@@ -4,14 +4,13 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.templating import Jinja2Templates
 
 from app.db.database import get_db_session
 from app.db.models import AuditLog, User
 from app.dependencies import get_admin_user
+from app.templating import templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-templates = Jinja2Templates(directory="templates")
 
 
 def _parse_optional_date(raw: str) -> date | None:
