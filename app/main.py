@@ -9,7 +9,7 @@ from starlette.templating import Jinja2Templates
 from app.cache import redis_client
 from app.config import get_settings
 from app.middleware.csrf import csrf_dispatch
-from app.routers import audit, auth, dashboard
+from app.routers import admin_tools, audit, auth, dashboard, security
 
 settings = get_settings()
 templates = Jinja2Templates(directory="templates")
@@ -29,6 +29,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(audit.router)
+app.include_router(security.router)
+app.include_router(admin_tools.router)
 
 
 @app.exception_handler(HTTPException)

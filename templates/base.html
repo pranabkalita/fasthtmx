@@ -30,6 +30,11 @@
     }
 
     function ensureFormCsrfToken(form) {
+      const method = (form.getAttribute('method') || 'get').toLowerCase();
+      if (method === 'get') {
+        return;
+      }
+
       const token = readCookie('csrf_token');
       if (!token) {
         return;
@@ -48,14 +53,21 @@
       document.querySelectorAll('form').forEach((form) => ensureFormCsrfToken(form));
     });
 
-    document.body.addEventListener('submit', (event) => {
+    document.addEventListener('htmx:afterSwap', (event) => {
+      const target = event.detail && event.detail.target;
+      if (target) {
+        target.querySelectorAll('form').forEach((form) => ensureFormCsrfToken(form));
+      }
+    });
+
+    document.addEventListener('submit', (event) => {
       const form = event.target;
       if (form && form.tagName === 'FORM') {
         ensureFormCsrfToken(form);
       }
     }, true);
 
-    document.body.addEventListener('htmx:configRequest', (event) => {
+    document.addEventListener('htmx:configRequest', (event) => {
       const token = readCookie('csrf_token');
       if (token) {
         event.detail.headers['X-CSRF-Token'] = token;
@@ -63,7 +75,7 @@
     });
   </script>
 </head>
-<body>
+<body hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML" hx-push-url="true">
   <div id="top-progress" aria-hidden="true"></div>
 
   {% if not hide_shell_header %}

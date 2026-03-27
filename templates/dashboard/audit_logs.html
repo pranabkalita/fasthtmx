@@ -6,34 +6,6 @@
 <section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
   {% include 'components/dashboard_sidebar.html' %}
 
-  <section class="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-    <h1 class="mb-4 text-base font-semibold text-slate-900">Audit Logs (Admin)</h1>
-    <div class="overflow-x-auto rounded-xl border border-slate-200">
-      <table class="w-full text-left text-sm">
-      <thead class="text-slate-600">
-        <tr>
-          <th class="bg-slate-50 px-4 py-3">When</th>
-          <th class="bg-slate-50 px-4 py-3">Action</th>
-          <th class="bg-slate-50 px-4 py-3">Target</th>
-          <th class="bg-slate-50 px-4 py-3">User</th>
-          <th class="bg-slate-50 px-4 py-3">IP</th>
-        </tr>
-      </thead>
-      <tbody class="text-slate-800">
-        {% for row in logs %}
-          <tr class="border-t border-slate-100">
-            <td class="px-4 py-3">{{ row.created_at }}</td>
-            <td class="px-4 py-3">{{ row.action }}</td>
-            <td class="px-4 py-3">{{ row.target }}</td>
-            <td class="px-4 py-3">{{ row.user_id or '-' }}</td>
-            <td class="px-4 py-3">{{ row.ip_address or '-' }}</td>
-          </tr>
-        {% else %}
-          <tr><td class="px-4 py-4" colspan="5">No logs yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-  </div>
+  {% include 'dashboard/_audit_logs_panel.html' %}
 </section>
 {% endblock %}

@@ -86,7 +86,7 @@ def test_client(mock_redis, mock_send_email):
     from app.cache import get_redis
     from app.db.database import get_db_session, AsyncSessionLocal
     from app.config import get_settings
-    from app.routers import audit, auth, dashboard
+    from app.routers import admin_tools, audit, auth, dashboard, security
     
     settings_local = get_settings()
     
@@ -100,6 +100,8 @@ def test_client(mock_redis, mock_send_email):
     test_app.include_router(auth.router)
     test_app.include_router(dashboard.router)
     test_app.include_router(audit.router)
+    test_app.include_router(security.router)
+    test_app.include_router(admin_tools.router)
     
     # Add healthz endpoint
     from fastapi.responses import HTMLResponse
