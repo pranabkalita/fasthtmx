@@ -106,11 +106,10 @@ async def register(
         },
     )
     await write_audit_log(db, action="REGISTER", target="user", user_id=user.id, request=request)
-    return templates.TemplateResponse(
-        request,
-        "auth/login.html",
-        {"title": "Login", "success": "Registration complete. Check your email to verify your account."},
-    )
+    add_toast(request, type="success", message="Registration complete. Check your email to verify your account.")
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse("", headers={"HX-Redirect": "/login"})
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/verify-email", response_class=HTMLResponse)
@@ -162,14 +161,14 @@ async def resend_verification(
             },
         )
 
-    return templates.TemplateResponse(
+    add_toast(
         request,
-        "auth/login.html",
-        {
-            "title": "Login",
-            "success": "If the account exists and is unverified, a verification email was sent.",
-        },
+        type="success",
+        message="If the account exists and is unverified, a verification email was sent.",
     )
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse("", headers={"HX-Redirect": "/login"})
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/login", response_class=HTMLResponse)

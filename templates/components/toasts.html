@@ -1,0 +1,26 @@
+{% if success %}
+  <div data-toast-message="{{ success }}" data-toast-type="success" data-toast-duration="4200" hidden></div>
+{% endif %}
+{% if error %}
+  <div data-toast-message="{{ error }}" data-toast-type="error" data-toast-duration="5200" hidden></div>
+{% endif %}
+{% if toasts %}
+  {% for toast in toasts %}
+    <div
+      data-toast-message="{{ toast.message }}"
+      data-toast-type="{{ toast.type or 'info' }}"
+      data-toast-duration="{{ toast.duration or 4200 }}"
+      hidden
+    ></div>
+  {% endfor %}
+{% endif %}
+{% if flash_toasts %}
+  {% for toast in flash_toasts %}
+    <div
+      data-toast-message="{{ toast.message }}"
+      data-toast-type="{{ toast.type or 'info' }}"
+      data-toast-duration="{{ toast.duration or 4200 }}"
+      hidden
+    ></div>
+  {% endfor %}
+{% endif %}

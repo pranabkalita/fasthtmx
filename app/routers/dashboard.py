@@ -1,6 +1,6 @@
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, Form, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib.parse import quote_plus
@@ -12,6 +12,7 @@ from app.db.models import User
 from app.services.auth_service import create_email_verification_token
 from app.services.audit_service import write_audit_log
 from app.services.email_service import send_templated_email
+from app.services.flash_service import add_toast
 from app.templating import templates
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -133,12 +134,8 @@ async def update_profile(
         details=f"email_changed={has_email_change}",
     )
 
-    return templates.TemplateResponse(
-        request,
-        "dashboard/profile.html",
-        {
-            "title": "Profile",
-            "user": current_user,
-            "success": success_message,
-        },
-    )
+    add_toast(request, type="success", message=success_message)
+
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse("", headers={"HX-Redirect": "/dashboard/profile"})
+    return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)

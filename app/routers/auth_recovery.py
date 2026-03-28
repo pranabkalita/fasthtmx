@@ -3,7 +3,7 @@ from __future__ import annotations
 from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Form, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ from app.rate_limit import LimitRule, safe_identity
 from app.services.audit_service import write_audit_log
 from app.services.auth_service import consume_reset_token, create_reset_token, revoke_all_sessions
 from app.services.email_service import send_templated_email
+from app.services.flash_service import add_toast
 from app.templating import templates
 
 from .auth_common import apply_rate_limits, get_ip, redirect_authenticated_user
@@ -64,11 +65,10 @@ async def forgot_password(
             },
         )
 
-    return templates.TemplateResponse(
-        request,
-        "auth/login.html",
-        {"title": "Login", "success": "If your email exists, a reset link was sent."},
-    )
+    add_toast(request, type="success", message="If your email exists, a reset link was sent.")
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse("", headers={"HX-Redirect": "/login"})
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/reset-password", response_class=HTMLResponse)
@@ -108,8 +108,7 @@ async def reset_password(
     user = await consume_reset_token(db=db, signed_token=token, new_password=password)
     await revoke_all_sessions(db=db, user_id=user.id)
     await write_audit_log(db, action="PASSWORD_RESET", target="user", user_id=user.id, request=request)
-    return templates.TemplateResponse(
-        request,
-        "auth/login.html",
-        {"title": "Login", "success": "Password reset complete. Please sign in."},
-    )
+    add_toast(request, type="success", message="Password reset complete. Please sign in.")
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse("", headers={"HX-Redirect": "/login"})
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)

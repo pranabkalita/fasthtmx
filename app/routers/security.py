@@ -163,6 +163,40 @@ async def setup_2fa(
     )
 
 
+@router.get("/2fa/backup-codes", response_class=HTMLResponse)
+async def backup_codes_page(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> HTMLResponse:
+    payload = request.session.pop("_backup_codes_once", None)
+    backup_codes: list[str] = []
+
+    if isinstance(payload, dict) and payload.get("user_id") == current_user.id:
+        raw_codes = payload.get("codes", [])
+        if isinstance(raw_codes, list):
+            backup_codes = [str(code) for code in raw_codes if code]
+
+    if not backup_codes:
+        add_toast(
+            request,
+            type="error",
+            message="Backup codes are available only right after enabling 2FA.",
+        )
+        if request.headers.get("HX-Request") == "true":
+            return HTMLResponse("", headers={"HX-Redirect": "/dashboard/profile"})
+        return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)
+
+    return templates.TemplateResponse(
+        request,
+        "dashboard/backup_codes.html",
+        {
+            "title": "Backup Codes",
+            "user": current_user,
+            "backup_codes": backup_codes,
+        },
+    )
+
+
 @router.post("/2fa/enable")
 async def enable_2fa(
     request: Request,
@@ -173,6 +207,8 @@ async def enable_2fa(
 ) -> HTMLResponse:
     if not verify_totp(secret, code):
         add_toast(request, type="error", message="Invalid code. Enter a current authenticator code.")
+        if request.headers.get("HX-Request") == "true":
+            return HTMLResponse("", headers={"HX-Redirect": "/2fa/setup"})
         return RedirectResponse(url="/2fa/setup", status_code=status.HTTP_303_SEE_OTHER)
 
     current_user.two_factor_enabled = True
@@ -180,16 +216,14 @@ async def enable_2fa(
     await db.commit()
     backup_codes = await reset_backup_codes(db, current_user.id)
     await write_audit_log(db, action="2FA_ENABLED", target="user", user_id=current_user.id, request=request)
-    return templates.TemplateResponse(
-        request,
-        "dashboard/backup_codes.html",
-        {
-            "title": "Backup Codes",
-            "user": current_user,
-            "backup_codes": backup_codes,
-            "success": "2FA enabled. Save these backup codes in a safe place.",
-        },
-    )
+    request.session["_backup_codes_once"] = {
+        "user_id": current_user.id,
+        "codes": backup_codes,
+    }
+    add_toast(request, type="success", message="2FA enabled. Save these backup codes in a safe place.")
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse("", headers={"HX-Redirect": "/2fa/backup-codes"})
+    return RedirectResponse(url="/2fa/backup-codes", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/2fa/disable")
@@ -215,15 +249,10 @@ async def disable_2fa(
     current_user.two_factor_secret = None
     await db.commit()
     await write_audit_log(db, action="2FA_DISABLED", target="user", user_id=current_user.id, request=request)
-    return templates.TemplateResponse(
-        request,
-        "dashboard/profile.html",
-        {
-            "title": "Profile",
-            "user": current_user,
-            "success": "2FA has been disabled for your account.",
-        },
-    )
+    add_toast(request, type="success", message="2FA has been disabled for your account.")
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse("", headers={"HX-Redirect": "/dashboard/profile"})
+    return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/password/change", response_class=HTMLResponse)
