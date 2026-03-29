@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache import get_redis
 from app.config import get_settings
 from app.db.database import get_db_session
+from app.dependencies import get_authenticated_user_from_request, redirect_authenticated_user
 from app.db.models import User
-from app.rate_limit import LimitRule, safe_identity
+from app.rate_limit import LimitRule, apply_rate_limits, get_ip, safe_identity
 from app.services.audit_service import write_audit_log
 from app.services.auth_service import (
     authenticate_user,
@@ -28,13 +29,6 @@ from app.services.auth_service import (
 from app.services.flash_service import add_toast
 from app.services.job_queue import JobEnqueueError, enqueue_templated_email
 from app.templating import templates
-
-from .auth_common import (
-    apply_rate_limits,
-    get_authenticated_user_from_request,
-    get_ip,
-    redirect_authenticated_user,
-)
 
 router = APIRouter(tags=["auth"])
 settings = get_settings()
