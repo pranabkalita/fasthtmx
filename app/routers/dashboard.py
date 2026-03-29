@@ -15,11 +15,11 @@ from app.services.flash_service import add_toast
 from app.services.job_queue import JobEnqueueError, enqueue_templated_email
 from app.templating import templates
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(tags=["dashboard"])
 settings = get_settings()
 
 
-@router.get("", response_class=HTMLResponse)
+@router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, current_user: User = Depends(get_current_user)) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
@@ -41,6 +41,11 @@ async def profile(request: Request, current_user: User = Depends(get_current_use
             "user": current_user,
         },
     )
+
+
+@router.get("/dashboard/profile", include_in_schema=False)
+async def legacy_profile_redirect(_: Request) -> RedirectResponse:
+    return RedirectResponse(url="/profile", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
 @router.post("/profile/update", response_class=HTMLResponse)
@@ -159,5 +164,5 @@ async def update_profile(
     add_toast(request, type="success", message=success_message)
 
     if request.headers.get("HX-Request") == "true":
-        return HTMLResponse("", headers={"HX-Redirect": "/dashboard/profile"})
-    return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)
+        return HTMLResponse("", headers={"HX-Redirect": "/profile"})
+    return RedirectResponse(url="/profile", status_code=status.HTTP_303_SEE_OTHER)

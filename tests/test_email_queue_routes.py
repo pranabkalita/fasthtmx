@@ -157,14 +157,14 @@ def test_profile_email_change_queues_verification_email(test_client, mock_email_
     _dispose_engine()
 
     response = test_client.post(
-        "/dashboard/profile/update",
+        "/profile/update",
         data={"full_name": "Profile Queue Updated", "email": new_email},
         follow_redirects=False,
     )
 
     try:
         assert response.status_code == 303
-        assert response.headers["location"] == "/dashboard/profile"
+        assert response.headers["location"] == "/profile"
         queue_mock = mock_email_queue["dashboard"]
         queue_mock.assert_awaited_once()
         call = queue_mock.await_args.kwargs
@@ -186,7 +186,7 @@ def test_profile_email_change_returns_503_when_queue_fails(test_client, mock_ema
     _dispose_engine()
 
     response = test_client.post(
-        "/dashboard/profile/update",
+        "/profile/update",
         data={"full_name": "Profile Queue Updated", "email": new_email},
         follow_redirects=False,
     )

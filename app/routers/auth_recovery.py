@@ -17,6 +17,7 @@ from app.services.audit_service import write_audit_log
 from app.services.auth_service import consume_reset_token, create_reset_token, revoke_all_sessions
 from app.services.flash_service import add_toast
 from app.services.job_queue import JobEnqueueError, enqueue_templated_email
+from app.services.password_policy import validate_password_confirmation, validate_strong_password
 from app.templating import templates
 
 from .auth_common import apply_rate_limits, get_ip, redirect_authenticated_user
@@ -115,21 +116,50 @@ async def reset_password_page(
 async def reset_password(
     request: Request,
     token: str = Form(...),
-    password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_new_password: str = Form(...),
     db: AsyncSession = Depends(get_db_session),
     redis: Redis = Depends(get_redis),
 ) -> HTMLResponse:
     await apply_rate_limits(redis, [(RESET_RULE, safe_identity(get_ip(request)))])
 
-    if len(password) < 8:
+    error_status_code = (
+        status.HTTP_200_OK
+        if request.headers.get("HX-Request") == "true"
+        else status.HTTP_400_BAD_REQUEST
+    )
+
+    mismatch_error = validate_password_confirmation(
+        new_password,
+        confirm_new_password,
+        label="New password",
+    )
+    if mismatch_error:
         return templates.TemplateResponse(
             request,
             "auth/reset_password.html",
-            {"title": "Reset Password", "token": token, "error": "Password must be at least 8 characters."},
-            status_code=status.HTTP_400_BAD_REQUEST,
+            {
+                "title": "Reset Password",
+                "token": token,
+                "reset_password_error": mismatch_error,
+            },
+            status_code=error_status_code,
         )
 
-    user = await consume_reset_token(db=db, signed_token=token, new_password=password)
+    strength_error = validate_strong_password(new_password, label="New password")
+    if strength_error:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_password.html",
+            {
+                "title": "Reset Password",
+                "token": token,
+                "reset_password_error": strength_error,
+            },
+            status_code=error_status_code,
+        )
+
+    user = await consume_reset_token(db=db, signed_token=token, new_password=new_password)
     await revoke_all_sessions(db=db, user_id=user.id)
     await write_audit_log(db, action="PASSWORD_RESET", target="user", user_id=user.id, request=request)
     add_toast(request, type="success", message="Password reset complete. Please sign in.")

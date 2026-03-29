@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import qrcode
 from fastapi import APIRouter, Depends, Form, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +25,7 @@ from app.services.auth_service import (
     verify_totp,
 )
 from app.services.flash_service import add_toast
+from app.services.password_policy import validate_password_confirmation, validate_strong_password
 from app.templating import templates
 
 router = APIRouter(tags=["security"])
@@ -36,13 +37,19 @@ async def logout(
     request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> RedirectResponse:
+) -> Response:
     raw_session = request.cookies.get(settings.session_cookie_name)
     if raw_session:
         await revoke_session(db, raw_session)
 
     await write_audit_log(db, action="LOGOUT", target="session", user_id=current_user.id, request=request)
     add_toast(request, type="success", message="You have been logged out.")
+
+    if request.headers.get("HX-Request") == "true":
+        response = HTMLResponse("", headers={"HX-Redirect": "/login"})
+        response.delete_cookie(settings.session_cookie_name)
+        return response
+
     redirect = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     redirect.delete_cookie(settings.session_cookie_name)
     return redirect
@@ -183,8 +190,8 @@ async def backup_codes_page(
             message="Backup codes are available only right after enabling 2FA.",
         )
         if request.headers.get("HX-Request") == "true":
-            return HTMLResponse("", headers={"HX-Redirect": "/dashboard/profile"})
-        return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)
+            return HTMLResponse("", headers={"HX-Redirect": "/profile"})
+        return RedirectResponse(url="/profile", status_code=status.HTTP_303_SEE_OTHER)
 
     return templates.TemplateResponse(
         request,
@@ -251,8 +258,8 @@ async def disable_2fa(
     await write_audit_log(db, action="2FA_DISABLED", target="user", user_id=current_user.id, request=request)
     add_toast(request, type="success", message="2FA has been disabled for your account.")
     if request.headers.get("HX-Request") == "true":
-        return HTMLResponse("", headers={"HX-Redirect": "/dashboard/profile"})
-    return RedirectResponse(url="/dashboard/profile", status_code=status.HTTP_303_SEE_OTHER)
+        return HTMLResponse("", headers={"HX-Redirect": "/profile"})
+    return RedirectResponse(url="/profile", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/password/change", response_class=HTMLResponse)
@@ -260,23 +267,56 @@ async def change_password(
     request: Request,
     current_password: str = Form(...),
     new_password: str = Form(...),
+    confirm_new_password: str = Form(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> HTMLResponse:
+    error_status_code = (
+        status.HTTP_200_OK
+        if request.headers.get("HX-Request") == "true"
+        else status.HTTP_400_BAD_REQUEST
+    )
+
     if not verify_password(current_password, current_user.password_hash):
         return templates.TemplateResponse(
             request,
             "dashboard/profile.html",
-            {"title": "Profile", "user": current_user, "error": "Current password is invalid."},
-            status_code=status.HTTP_400_BAD_REQUEST,
+            {
+                "title": "Profile",
+                "user": current_user,
+                "change_password_error": "Current password is invalid.",
+            },
+            status_code=error_status_code,
         )
 
-    if len(new_password) < 8:
+    mismatch_error = validate_password_confirmation(
+        new_password,
+        confirm_new_password,
+        label="New password",
+    )
+    if mismatch_error:
         return templates.TemplateResponse(
             request,
             "dashboard/profile.html",
-            {"title": "Profile", "user": current_user, "error": "New password must be at least 8 characters."},
-            status_code=status.HTTP_400_BAD_REQUEST,
+            {
+                "title": "Profile",
+                "user": current_user,
+                "change_password_error": mismatch_error,
+            },
+            status_code=error_status_code,
+        )
+
+    strength_error = validate_strong_password(new_password, label="New password")
+    if strength_error:
+        return templates.TemplateResponse(
+            request,
+            "dashboard/profile.html",
+            {
+                "title": "Profile",
+                "user": current_user,
+                "change_password_error": strength_error,
+            },
+            status_code=error_status_code,
         )
 
     current_user.password_hash = hash_password(new_password)
