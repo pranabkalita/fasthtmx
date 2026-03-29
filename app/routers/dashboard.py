@@ -11,8 +11,8 @@ from app.dependencies import get_current_user
 from app.db.models import User
 from app.services.auth_service import create_email_verification_token
 from app.services.audit_service import write_audit_log
-from app.services.email_service import send_templated_email
 from app.services.flash_service import add_toast
+from app.services.job_queue import JobEnqueueError, enqueue_templated_email
 from app.templating import templates
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -112,18 +112,36 @@ async def update_profile(
     if has_email_change:
         signed_token, _ = await create_email_verification_token(db=db, user_id=current_user.id)
         verify_link = f"{settings.app_url}/verify-email?token={quote_plus(signed_token)}"
-        await send_templated_email(
-            subject="Verify your new email address",
-            recipients=[current_user.email],
-            template_name="verify_new_email",
-            context={
-                "subject": "Verify your new email address",
-                "preheader": "Confirm your new email to keep account access.",
-                "action_url": verify_link,
-                "expires_hours": 24,
-            },
-        )
-        success_message = "Profile updated. Verify your new email before next login."
+        email_job_id = ""
+        try:
+            email_job_id = await enqueue_templated_email(
+                subject="Verify your new email address",
+                recipients=[current_user.email],
+                template_name="verify_new_email",
+                context={
+                    "subject": "Verify your new email address",
+                    "preheader": "Confirm your new email to keep account access.",
+                    "action_url": verify_link,
+                    "expires_hours": 24,
+                },
+                metadata={
+                    "user_id": current_user.id,
+                    "request_id": request.headers.get("x-request-id", ""),
+                    "route": "profile_update",
+                },
+            )
+        except JobEnqueueError:
+            return templates.TemplateResponse(
+                request,
+                "dashboard/profile.html",
+                {
+                    "title": "Profile",
+                    "user": current_user,
+                    "error": "Profile updated, but the verification email could not be queued. Please try updating again shortly.",
+                },
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        success_message = "Profile updated. Your verification email will arrive shortly."
 
     await write_audit_log(
         db,
@@ -131,7 +149,11 @@ async def update_profile(
         target="user",
         user_id=current_user.id,
         request=request,
-        details=f"email_changed={has_email_change}",
+        details=(
+            f"email_changed={has_email_change};verification_email_job_id={email_job_id}"
+            if has_email_change
+            else f"email_changed={has_email_change}"
+        ),
     )
 
     add_toast(request, type="success", message=success_message)

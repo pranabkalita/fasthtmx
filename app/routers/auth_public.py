@@ -25,8 +25,8 @@ from app.services.auth_service import (
     verify_email_token,
     verify_totp,
 )
-from app.services.email_service import send_templated_email
 from app.services.flash_service import add_toast
+from app.services.job_queue import JobEnqueueError, enqueue_templated_email
 from app.templating import templates
 
 from .auth_common import (
@@ -93,20 +93,46 @@ async def register(
     signed_token, _ = await create_email_verification_token(db=db, user_id=user.id)
     verify_link = f"{settings.app_url}/verify-email?token={quote_plus(signed_token)}"
 
-    await send_templated_email(
-        subject="Verify your account",
-        recipients=[user.email],
-        template_name="verify_account",
-        context={
-            "subject": "Verify your account",
-            "preheader": "Confirm your email to activate your FastAuth account.",
-            "user_name": user.full_name or "",
-            "action_url": verify_link,
-            "expires_hours": 24,
-        },
+    try:
+        email_job_id = await enqueue_templated_email(
+            subject="Verify your account",
+            recipients=[user.email],
+            template_name="verify_account",
+            context={
+                "subject": "Verify your account",
+                "preheader": "Confirm your email to activate your FastAuth account.",
+                "user_name": user.full_name or "",
+                "action_url": verify_link,
+                "expires_hours": 24,
+            },
+            metadata={
+                "user_id": user.id,
+                "request_id": request.headers.get("x-request-id", ""),
+                "route": "register",
+            },
+        )
+    except JobEnqueueError:
+        return templates.TemplateResponse(
+            request,
+            "auth/register.html",
+            {
+                "title": "Create Account",
+                "error": (
+                    "Account created, but the verification email could not be queued. "
+                    "Please try again from the resend verification form."
+                ),
+            },
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    await write_audit_log(
+        db,
+        action="REGISTER",
+        target="user",
+        user_id=user.id,
+        request=request,
+        details=f"verification_email_job_id={email_job_id}",
     )
-    await write_audit_log(db, action="REGISTER", target="user", user_id=user.id, request=request)
-    add_toast(request, type="success", message="Registration complete. Check your email to verify your account.")
+    add_toast(request, type="success", message="Registration complete. Your verification email will arrive shortly.")
     if request.headers.get("HX-Request") == "true":
         return HTMLResponse("", headers={"HX-Redirect": "/login"})
     return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -149,22 +175,46 @@ async def resend_verification(
     if user and not user.is_verified:
         signed_token, _ = await create_email_verification_token(db=db, user_id=user.id)
         verify_link = f"{settings.app_url}/verify-email?token={quote_plus(signed_token)}"
-        await send_templated_email(
-            subject="Verify your account",
-            recipients=[user.email],
-            template_name="verify_account_resend",
-            context={
-                "subject": "Verify your account",
-                "preheader": "Here is your new FastAuth verification link.",
-                "action_url": verify_link,
-                "expires_hours": 24,
-            },
+        try:
+            email_job_id = await enqueue_templated_email(
+                subject="Verify your account",
+                recipients=[user.email],
+                template_name="verify_account_resend",
+                context={
+                    "subject": "Verify your account",
+                    "preheader": "Here is your new FastAuth verification link.",
+                    "action_url": verify_link,
+                    "expires_hours": 24,
+                },
+                metadata={
+                    "user_id": user.id,
+                    "request_id": request.headers.get("x-request-id", ""),
+                    "route": "verify_email_resend",
+                },
+            )
+        except JobEnqueueError:
+            return templates.TemplateResponse(
+                request,
+                "auth/login.html",
+                {
+                    "title": "Login",
+                    "error": "The verification email could not be queued right now. Please try again shortly.",
+                },
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        await write_audit_log(
+            db,
+            action="EMAIL_VERIFICATION_RESEND_QUEUED",
+            target="user",
+            user_id=user.id,
+            request=request,
+            details=f"verification_email_job_id={email_job_id}",
         )
 
     add_toast(
         request,
         type="success",
-        message="If the account exists and is unverified, a verification email was sent.",
+        message="If the account exists and is unverified, a verification email will arrive shortly.",
     )
     if request.headers.get("HX-Request") == "true":
         return HTMLResponse("", headers={"HX-Redirect": "/login"})

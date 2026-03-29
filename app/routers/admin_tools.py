@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.db.models import User
 from app.dependencies import get_admin_user
 from app.services.email_service import render_email_bodies
+from app.services.job_queue import get_recent_email_job_results, is_job_queue_healthy
 from app.templating import templates
 
 router = APIRouter(tags=["admin-tools"])
@@ -90,5 +91,25 @@ async def email_preview_text(
             "user": current_user,
             "template_name": template_name,
             "text_body": text_body,
+        },
+    )
+
+
+@router.get("/admin/queue-status", response_class=HTMLResponse)
+async def queue_status_page(
+    request: Request,
+    current_user: User = Depends(get_admin_user),
+) -> HTMLResponse:
+    healthy = await is_job_queue_healthy()
+    recent_email_jobs = await get_recent_email_job_results(limit=12)
+    return templates.TemplateResponse(
+        request,
+        "dev/queue_status.html",
+        {
+            "title": "Queue Status",
+            "user": current_user,
+            "active_page": "queue_status",
+            "queue_healthy": healthy,
+            "recent_email_jobs": recent_email_jobs,
         },
     )

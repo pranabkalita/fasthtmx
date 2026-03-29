@@ -78,9 +78,22 @@ def mock_send_email():
 
 
 @pytest.fixture
-def test_client(mock_redis, mock_send_email):
+def mock_email_queue():
+    """Mock queued email dispatch in route handlers."""
+    with patch("app.routers.auth_public.enqueue_templated_email", new_callable=AsyncMock) as auth_public_queue:
+        with patch("app.routers.auth_recovery.enqueue_templated_email", new_callable=AsyncMock) as auth_recovery_queue:
+            with patch("app.routers.dashboard.enqueue_templated_email", new_callable=AsyncMock) as dashboard_queue:
+                yield {
+                    "auth_public": auth_public_queue,
+                    "auth_recovery": auth_recovery_queue,
+                    "dashboard": dashboard_queue,
+                }
+
+
+@pytest.fixture
+def test_client(mock_redis, mock_send_email, mock_email_queue):
     """Create a test client with mocked dependencies."""
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Request
     from fastapi.testclient import TestClient
     from fastapi.staticfiles import StaticFiles
     from starlette.middleware.sessions import SessionMiddleware
@@ -111,11 +124,18 @@ def test_client(mock_redis, mock_send_email):
     test_app.include_router(admin_tools.router)
     
     # Add healthz endpoint
-    from fastapi.responses import HTMLResponse
+    from fastapi.responses import HTMLResponse, JSONResponse
+    from app.services.job_queue import is_job_queue_healthy
     
     @test_app.get("/healthz", response_class=HTMLResponse)
     async def healthz(request):
         return HTMLResponse("ok")
+
+    @test_app.get("/healthz/queue")
+    async def queue_healthz(_: Request):
+        healthy = await is_job_queue_healthy()
+        status_code = 200 if healthy else 503
+        return JSONResponse({"ok": healthy, "service": "job_queue"}, status_code=status_code)
     
     # Override dependencies
     async def override_get_db():

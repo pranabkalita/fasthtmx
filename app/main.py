@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -10,6 +10,7 @@ from app.cache import redis_client
 from app.config import get_settings
 from app.middleware.csrf import csrf_dispatch
 from app.routers import admin_tools, audit, auth, dashboard, security
+from app.services.job_queue import close_job_queue, is_job_queue_healthy
 from app.templating import templates
 
 settings = get_settings()
@@ -18,6 +19,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     yield
+    await close_job_queue()
     await redis_client.aclose()
 
 
@@ -58,3 +60,10 @@ async def app_http_exception_handler(request: Request, exc: HTTPException):
 @app.get("/healthz", response_class=HTMLResponse)
 async def healthz(_: Request) -> HTMLResponse:
     return HTMLResponse("ok")
+
+
+@app.get("/healthz/queue")
+async def queue_healthz(_: Request) -> JSONResponse:
+    healthy = await is_job_queue_healthy()
+    status_code = 200 if healthy else 503
+    return JSONResponse({"ok": healthy, "service": "job_queue"}, status_code=status_code)

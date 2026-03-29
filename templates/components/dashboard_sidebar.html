@@ -52,6 +52,7 @@
     {% if user.is_admin %}
       <a href="/admin/audit-logs" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'audit' else 'text-slate-600 hover:bg-slate-100' }}">Audit Logs</a>
       <a href="/dev/email-previews" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'email_previews' else 'text-slate-600 hover:bg-slate-100' }}">Email Previews</a>
+      <a href="/admin/queue-status" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'queue_status' else 'text-slate-600 hover:bg-slate-100' }}">Queue Status</a>
     {% endif %}
   </nav>
 

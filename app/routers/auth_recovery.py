@@ -15,8 +15,8 @@ from app.db.models import User
 from app.rate_limit import LimitRule, safe_identity
 from app.services.audit_service import write_audit_log
 from app.services.auth_service import consume_reset_token, create_reset_token, revoke_all_sessions
-from app.services.email_service import send_templated_email
 from app.services.flash_service import add_toast
+from app.services.job_queue import JobEnqueueError, enqueue_templated_email
 from app.templating import templates
 
 from .auth_common import apply_rate_limits, get_ip, redirect_authenticated_user
@@ -53,19 +53,43 @@ async def forgot_password(
     if user:
         signed_token, _ = await create_reset_token(db=db, user_id=user.id)
         reset_link = f"{settings.app_url}/reset-password?token={quote_plus(signed_token)}"
-        await send_templated_email(
-            subject="Reset your password",
-            recipients=[user.email],
-            template_name="reset_password",
-            context={
-                "subject": "Reset your password",
-                "preheader": "Reset your FastAuth password securely.",
-                "action_url": reset_link,
-                "expires_hours": 24,
-            },
+        try:
+            email_job_id = await enqueue_templated_email(
+                subject="Reset your password",
+                recipients=[user.email],
+                template_name="reset_password",
+                context={
+                    "subject": "Reset your password",
+                    "preheader": "Reset your FastAuth password securely.",
+                    "action_url": reset_link,
+                    "expires_hours": 24,
+                },
+                metadata={
+                    "user_id": user.id,
+                    "request_id": request.headers.get("x-request-id", ""),
+                    "route": "forgot_password",
+                },
+            )
+        except JobEnqueueError:
+            return templates.TemplateResponse(
+                request,
+                "auth/forgot_password.html",
+                {
+                    "title": "Forgot Password",
+                    "error": "The reset email could not be queued right now. Please try again shortly.",
+                },
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        await write_audit_log(
+            db,
+            action="PASSWORD_RESET_EMAIL_QUEUED",
+            target="user",
+            user_id=user.id,
+            request=request,
+            details=f"reset_email_job_id={email_job_id}",
         )
 
-    add_toast(request, type="success", message="If your email exists, a reset link was sent.")
+    add_toast(request, type="success", message="If your email exists, a reset link will arrive shortly.")
     if request.headers.get("HX-Request") == "true":
         return HTMLResponse("", headers={"HX-Redirect": "/login"})
     return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)

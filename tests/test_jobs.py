@@ -1,6 +1,6 @@
 import asyncio
 
-from app.jobs import purge_deactivated_users
+from app.jobs import purge_deactivated_users, send_templated_email_job
 
 
 class _Result:
@@ -40,3 +40,34 @@ def test_purge_deactivated_users_returns_deleted_count(monkeypatch):
     monkeypatch.setattr(jobs, "AsyncSessionLocal", _SessionFactory(rowcount=3))
     deleted = asyncio.run(purge_deactivated_users(ctx={"retention_days": 30}))
     assert deleted == 3
+
+
+def test_send_templated_email_job_delegates_to_email_service(monkeypatch):
+    from app import jobs
+
+    captured: dict[str, object] = {}
+
+    async def _fake_send_templated_email(*, subject, recipients, template_name, context):
+        captured["subject"] = subject
+        captured["recipients"] = recipients
+        captured["template_name"] = template_name
+        captured["context"] = context
+
+    monkeypatch.setattr(jobs, "send_templated_email", _fake_send_templated_email)
+
+    asyncio.run(
+        send_templated_email_job(
+            {},
+            subject="Verify your account",
+            recipients=["user@example.com"],
+            template_name="verify_account",
+            context={"action_url": "https://example.com/verify"},
+        )
+    )
+
+    assert captured == {
+        "subject": "Verify your account",
+        "recipients": ["user@example.com"],
+        "template_name": "verify_account",
+        "context": {"action_url": "https://example.com/verify"},
+    }
