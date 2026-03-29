@@ -12,7 +12,7 @@ This app needs these long-running components:
 4. Redis server for rate limiting and job queue storage
 5. Nginx reverse proxy in front of the app
 
-Important: the web process and the worker are separate processes. If the worker is down, email-dependent flows such as registration verification, password reset, and profile email change will not be delivered.
+Important: the web process and the worker are separate processes. If the worker is down, email-dependent flows still proceed and email payloads are persisted for deferred retries; delivery is delayed until worker and queue connectivity recover.
 
 ## What The App Loads From Environment
 

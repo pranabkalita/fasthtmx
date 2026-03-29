@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -55,6 +56,17 @@ async def app_http_exception_handler(request: Request, exc: HTTPException):
         )
 
     return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(RequestValidationError)
+async def app_validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    return JSONResponse(
+        {
+            "detail": "Invalid request input.",
+            "errors": exc.errors(),
+        },
+        status_code=400,
+    )
 
 
 @app.get("/healthz", response_class=HTMLResponse)

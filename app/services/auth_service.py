@@ -27,19 +27,9 @@ from app.security import (
     load_signed_token,
     verify_password,
 )
+from app.services.time import as_utc_naive, utcnow_naive
 
 settings = get_settings()
-
-
-def _utcnow_naive() -> datetime:
-    # MySQL DATETIME values are returned as naive timestamps in this app.
-    return datetime.now(UTC).replace(tzinfo=None)
-
-
-def _as_utc_naive(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value
-    return value.astimezone(UTC).replace(tzinfo=None)
 
 
 async def create_user(db: AsyncSession, email: str, password: str, full_name: str = "") -> User:
@@ -57,7 +47,7 @@ async def create_user(db: AsyncSession, email: str, password: str, full_name: st
 async def create_email_verification_token(db: AsyncSession, user_id: str) -> tuple[str, datetime]:
     raw_token = generate_raw_token()
     token_hash = hash_token(raw_token)
-    expires_at = _utcnow_naive() + timedelta(hours=24)
+    expires_at = utcnow_naive() + timedelta(hours=24)
     db.add(EmailVerificationToken(user_id=user_id, token_hash=token_hash, expires_at=expires_at))
     await db.commit()
     signed = issue_signed_token(raw_token, TOKEN_PURPOSE_VERIFY)
@@ -77,14 +67,14 @@ async def verify_email_token(db: AsyncSession, signed_token: str) -> User:
         )
     )
     token = (await db.execute(query)).scalar_one_or_none()
-    if not token or _as_utc_naive(token.expires_at) < _utcnow_naive():
+    if not token or as_utc_naive(token.expires_at) < utcnow_naive():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token is no longer valid")
 
     user = (await db.execute(select(User).where(User.id == token.user_id))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    token.consumed_at = _utcnow_naive()
+    token.consumed_at = utcnow_naive()
     user.is_verified = True
     await db.commit()
     await db.refresh(user)
@@ -92,7 +82,7 @@ async def verify_email_token(db: AsyncSession, signed_token: str) -> User:
 
 
 async def is_locked_out(db: AsyncSession, email: str) -> bool:
-    window_start = _utcnow_naive() - timedelta(minutes=settings.login_lockout_minutes)
+    window_start = utcnow_naive() - timedelta(minutes=settings.login_lockout_minutes)
     count_stmt = (
         select(func.count(LoginAttempt.id))
         .where(
@@ -130,7 +120,7 @@ async def create_session(
 ) -> str:
     raw_session_token = generate_raw_token()
     token_hash = hash_token(raw_session_token)
-    expires_at = _utcnow_naive() + timedelta(seconds=settings.session_max_age)
+    expires_at = utcnow_naive() + timedelta(seconds=settings.session_max_age)
     db.add(
         Session(
             user_id=user_id,
@@ -170,7 +160,7 @@ async def revoke_all_sessions(db: AsyncSession, user_id: str) -> None:
 async def create_reset_token(db: AsyncSession, user_id: str) -> tuple[str, datetime]:
     raw_token = generate_raw_token()
     token_hash = hash_token(raw_token)
-    expires_at = _utcnow_naive() + timedelta(minutes=30)
+    expires_at = utcnow_naive() + timedelta(minutes=30)
     db.add(PasswordResetToken(user_id=user_id, token_hash=token_hash, expires_at=expires_at))
     await db.commit()
     signed = issue_signed_token(raw_token, TOKEN_PURPOSE_RESET)
@@ -193,14 +183,14 @@ async def consume_reset_token(db: AsyncSession, signed_token: str, new_password:
             )
         )
     ).scalar_one_or_none()
-    if not token or _as_utc_naive(token.expires_at) < _utcnow_naive():
+    if not token or as_utc_naive(token.expires_at) < utcnow_naive():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset token is no longer valid")
 
     user = (await db.execute(select(User).where(User.id == token.user_id))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    token.consumed_at = _utcnow_naive()
+    token.consumed_at = utcnow_naive()
     user.password_hash = hash_password(new_password)
     await db.commit()
     await db.refresh(user)
@@ -257,6 +247,6 @@ async def consume_backup_code(db: AsyncSession, user_id: str, code: str) -> bool
     if not row:
         return False
 
-    row.used_at = _utcnow_naive()
+    row.used_at = utcnow_naive()
     await db.commit()
     return True

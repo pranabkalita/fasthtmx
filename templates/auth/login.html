@@ -5,10 +5,23 @@
     <h1 class="text-2xl font-bold tracking-tight text-slate-900">Sign In</h1>
     <p class="mt-1 mb-6 text-sm text-slate-500">Secure access for verified accounts.</p>
 
+    {% if success %}
+      <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+        {{ success }}
+      </div>
+    {% endif %}
+
+    {% if error %}
+      <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+        {{ error }}
+      </div>
+    {% endif %}
+
     <form action="/login" method="post" class="space-y-4">
       <label class="flex flex-col gap-1">
         <span class="text-sm font-semibold text-slate-700">Email</span>
         <input type="email" name="email" required
+               value="{{ email_value or '' }}"
                class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
       </label>
 
@@ -23,7 +36,8 @@
           2FA or Backup Code
           <span class="font-normal text-slate-400">(required only if 2FA is enabled)</span>
         </span>
-        <input type="text" name="two_factor_code" placeholder="123456 or ABCD-EFGH"
+         <input type="text" name="two_factor_code" placeholder="123456 or ABCD-EFGH"
+           value="{{ two_factor_code_value or '' }}"
                class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20" />
         <p class="text-xs text-slate-500">
           Password is always required first. If your account has 2FA enabled, enter your authenticator code or a backup code.

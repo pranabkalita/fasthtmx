@@ -47,8 +47,14 @@ async def close_job_queue() -> None:
     if _job_queue is None:
         return
 
-    await _job_queue.aclose()
-    logger.info("job_queue_closed")
+    try:
+        await _job_queue.aclose()
+        logger.info("job_queue_closed")
+    except RuntimeError as exc:
+        if "Event loop is closed" in str(exc):
+            logger.warning("job_queue_close_skipped_event_loop_closed")
+        else:
+            raise
     _job_queue = None
 
 

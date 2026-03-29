@@ -6,7 +6,7 @@ from uuid import uuid4
 from sqlalchemy import delete, select
 
 from app.db.database import AsyncSessionLocal, engine
-from app.db.models import EmailVerificationToken, PasswordResetToken, Session, User
+from app.db.models import DeferredEmailJob, EmailVerificationToken, PasswordResetToken, Session, User
 from app.services.auth_service import create_session, create_user
 from app.services.job_queue import JobEnqueueError
 
@@ -34,8 +34,20 @@ async def _delete_user_related_rows(*, email: str | None = None, user_id: str | 
             await db.execute(delete(EmailVerificationToken).where(EmailVerificationToken.user_id == resolved_user_id))
             await db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == resolved_user_id))
             await db.execute(delete(Session).where(Session.user_id == resolved_user_id))
+            await db.execute(delete(DeferredEmailJob).where(DeferredEmailJob.user_id == resolved_user_id))
             await db.execute(delete(User).where(User.id == resolved_user_id))
             await db.commit()
+
+
+async def _count_deferred_jobs(*, user_id: str) -> int:
+    async with AsyncSessionLocal() as db:
+        rows = (await db.execute(select(DeferredEmailJob).where(DeferredEmailJob.user_id == user_id))).scalars().all()
+        return len(rows)
+
+
+async def _get_user_by_email(*, email: str) -> User | None:
+    async with AsyncSessionLocal() as db:
+        return (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
 
 
 async def _create_verified_user(*, email: str, password: str = "Password123", full_name: str = "Test User") -> User:
@@ -77,7 +89,7 @@ def test_register_queues_verification_email(test_client, mock_email_queue):
         _run(_delete_user_related_rows(email=email))
 
 
-def test_register_returns_503_when_queue_fails(test_client, mock_email_queue):
+def test_register_defers_email_when_queue_fails(test_client, mock_email_queue):
     email = f"register-fail-{uuid4().hex[:8]}@example.com"
     mock_email_queue["auth_public"].side_effect = JobEnqueueError("queue down")
     _dispose_engine()
@@ -89,8 +101,11 @@ def test_register_returns_503_when_queue_fails(test_client, mock_email_queue):
     )
 
     try:
-        assert response.status_code == 503
-        assert "could not be queued" in response.text
+        assert response.status_code == 303
+        assert response.headers["location"] == "/login"
+        user = _run(_get_user_by_email(email=email))
+        assert user is not None
+        assert _run(_count_deferred_jobs(user_id=user.id)) >= 1
     finally:
         _run(_delete_user_related_rows(email=email))
 
@@ -120,7 +135,7 @@ def test_forgot_password_queues_reset_email(test_client, mock_email_queue):
         _run(_delete_user_related_rows(user_id=user.id))
 
 
-def test_resend_verification_returns_503_when_queue_fails(test_client, mock_email_queue):
+def test_resend_verification_defers_when_queue_fails(test_client, mock_email_queue):
     email = f"resend-fail-{uuid4().hex[:8]}@example.com"
     user = _run(_create_verified_user(email=email, full_name="Resend Queue"))
     mock_email_queue["auth_public"].side_effect = JobEnqueueError("queue down")
@@ -142,8 +157,9 @@ def test_resend_verification_returns_503_when_queue_fails(test_client, mock_emai
     )
 
     try:
-        assert response.status_code == 503
-        assert "could not be queued right now" in response.text
+        assert response.status_code == 303
+        assert response.headers["location"] == "/login"
+        assert _run(_count_deferred_jobs(user_id=user.id)) >= 1
     finally:
         _run(_delete_user_related_rows(user_id=user.id))
 
@@ -176,7 +192,7 @@ def test_profile_email_change_queues_verification_email(test_client, mock_email_
         _run(_delete_user_related_rows(user_id=user.id))
 
 
-def test_profile_email_change_returns_503_when_queue_fails(test_client, mock_email_queue):
+def test_profile_email_change_defers_when_queue_fails(test_client, mock_email_queue):
     original_email = f"profile-fail-{uuid4().hex[:8]}@example.com"
     new_email = f"profile-fail-new-{uuid4().hex[:8]}@example.com"
     user = _run(_create_verified_user(email=original_email, full_name="Profile Queue Fail"))
@@ -192,7 +208,8 @@ def test_profile_email_change_returns_503_when_queue_fails(test_client, mock_ema
     )
 
     try:
-        assert response.status_code == 503
-        assert "verification email could not be queued" in response.text
+        assert response.status_code == 303
+        assert response.headers["location"] == "/profile"
+        assert _run(_count_deferred_jobs(user_id=user.id)) >= 1
     finally:
         _run(_delete_user_related_rows(user_id=user.id))

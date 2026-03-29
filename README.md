@@ -41,7 +41,7 @@ Initial implementation scaffold with core auth/account features:
 - App liveness: `GET /healthz`
 - Queue health: `GET /healthz/queue`
 
-`/healthz/queue` verifies that the web process can reach the ARQ Redis queue. If it returns `503`, queued email delivery will fail until Redis and/or queue connectivity is restored.
+`/healthz/queue` verifies that the web process can reach the ARQ Redis queue. If it returns `503`, queued email delivery moves to deferred DB-backed retries until queue connectivity is restored.
 
 ## Deployment Notes
 
@@ -107,8 +107,8 @@ services:
 
 - Schema is managed via Alembic migrations (`alembic/versions`).
 - Email delivery is queued through ARQ and sent by the background worker using SMTP settings from `.env`.
-- If the worker is not running, auth/profile flows that need outbound email will fail to queue delivery.
+- If the worker is not running, auth/profile flows continue and outbound emails are persisted to deferred email jobs for automatic retries.
 - Queue and worker logs now include email template names and ARQ job ids so enqueue events can be correlated with downstream worker execution.
-- Worker retries are explicit: queued email jobs can retry up to 3 times with a 120s timeout; the purge job runs once with a 300s timeout.
+- Worker retries are explicit: queued email jobs can retry up to 3 times with a 120s timeout; deferred email jobs are retried every 10 minutes; the purge job runs once with a 300s timeout.
 - Account purge retention is configured with `ACCOUNT_PURGE_DAYS`.
 - Initial test coverage is included for CSRF, rate limiting utility, and purge job behavior.

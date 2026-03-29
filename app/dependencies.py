@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
@@ -9,18 +7,9 @@ from app.config import get_settings
 from app.db.database import get_db_session
 from app.db.models import Session, User
 from app.security import hash_token
+from app.services.time import as_utc_naive, utcnow_naive
 
 settings = get_settings()
-
-
-def _utcnow_naive() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
-
-
-def _as_utc_naive(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value
-    return value.astimezone(UTC).replace(tzinfo=None)
 
 
 async def get_current_user(
@@ -37,7 +26,7 @@ async def get_current_user(
 
     if not session_row:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
-    if _as_utc_naive(session_row.expires_at) < _utcnow_naive():
+    if as_utc_naive(session_row.expires_at) < utcnow_naive():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
     user_query = select(User).where(User.id == session_row.user_id, User.is_active.is_(True))
@@ -59,7 +48,7 @@ async def get_authenticated_user_from_request(request: Request, db: AsyncSession
         return None
 
     token_hash = hash_token(raw_session)
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = utcnow_naive()
     session_row = (
         await db.execute(
             select(Session).where(

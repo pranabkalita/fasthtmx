@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import qrcode
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +15,13 @@ from app.config import get_settings
 from app.db.database import get_db_session
 from app.db.models import Session, User
 from app.dependencies import get_current_user
+from app.schemas import (
+    ChangePasswordForm,
+    DeactivateAccountForm,
+    DisableTwoFactorForm,
+    EnableTwoFactorForm,
+    first_validation_error,
+)
 from app.security import hash_password, hash_token, verify_password
 from app.services.audit_service import write_audit_log
 from app.services.auth_service import (
@@ -25,7 +33,6 @@ from app.services.auth_service import (
     verify_totp,
 )
 from app.services.flash_service import add_toast
-from app.services.password_policy import validate_password_confirmation, validate_strong_password
 from app.templating import templates
 
 router = APIRouter(tags=["security"])
@@ -212,14 +219,22 @@ async def enable_2fa(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> HTMLResponse:
-    if not verify_totp(secret, code):
+    try:
+        payload = EnableTwoFactorForm.model_validate({"secret": secret, "code": code})
+    except ValidationError:
+        add_toast(request, type="error", message="Invalid code. Enter a current authenticator code.")
+        if request.headers.get("HX-Request") == "true":
+            return HTMLResponse("", headers={"HX-Redirect": "/2fa/setup"})
+        return RedirectResponse(url="/2fa/setup", status_code=status.HTTP_303_SEE_OTHER)
+
+    if not verify_totp(payload.secret, payload.code):
         add_toast(request, type="error", message="Invalid code. Enter a current authenticator code.")
         if request.headers.get("HX-Request") == "true":
             return HTMLResponse("", headers={"HX-Redirect": "/2fa/setup"})
         return RedirectResponse(url="/2fa/setup", status_code=status.HTTP_303_SEE_OTHER)
 
     current_user.two_factor_enabled = True
-    current_user.two_factor_secret = secret
+    current_user.two_factor_secret = payload.secret
     await db.commit()
     backup_codes = await reset_backup_codes(db, current_user.id)
     await write_audit_log(db, action="2FA_ENABLED", target="user", user_id=current_user.id, request=request)
@@ -240,7 +255,21 @@ async def disable_2fa(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> HTMLResponse:
-    if not verify_password(password, current_user.password_hash):
+    try:
+        payload = DisableTwoFactorForm.model_validate({"password": password})
+    except ValidationError:
+        return templates.TemplateResponse(
+            request,
+            "dashboard/profile.html",
+            {
+                "title": "Profile",
+                "user": current_user,
+                "error": "Password is incorrect. 2FA was not disabled.",
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not verify_password(payload.password, current_user.password_hash):
         return templates.TemplateResponse(
             request,
             "dashboard/profile.html",
@@ -277,7 +306,27 @@ async def change_password(
         else status.HTTP_400_BAD_REQUEST
     )
 
-    if not verify_password(current_password, current_user.password_hash):
+    try:
+        payload = ChangePasswordForm.model_validate(
+            {
+                "current_password": current_password,
+                "new_password": new_password,
+                "confirm_new_password": confirm_new_password,
+            }
+        )
+    except ValidationError as exc:
+        return templates.TemplateResponse(
+            request,
+            "dashboard/profile.html",
+            {
+                "title": "Profile",
+                "user": current_user,
+                "change_password_error": first_validation_error(exc),
+            },
+            status_code=error_status_code,
+        )
+
+    if not verify_password(payload.current_password, current_user.password_hash):
         return templates.TemplateResponse(
             request,
             "dashboard/profile.html",
@@ -289,37 +338,7 @@ async def change_password(
             status_code=error_status_code,
         )
 
-    mismatch_error = validate_password_confirmation(
-        new_password,
-        confirm_new_password,
-        label="New password",
-    )
-    if mismatch_error:
-        return templates.TemplateResponse(
-            request,
-            "dashboard/profile.html",
-            {
-                "title": "Profile",
-                "user": current_user,
-                "change_password_error": mismatch_error,
-            },
-            status_code=error_status_code,
-        )
-
-    strength_error = validate_strong_password(new_password, label="New password")
-    if strength_error:
-        return templates.TemplateResponse(
-            request,
-            "dashboard/profile.html",
-            {
-                "title": "Profile",
-                "user": current_user,
-                "change_password_error": strength_error,
-            },
-            status_code=error_status_code,
-        )
-
-    current_user.password_hash = hash_password(new_password)
+    current_user.password_hash = hash_password(payload.new_password)
     await db.commit()
     await revoke_all_sessions(db, current_user.id)
     await write_audit_log(db, action="PASSWORD_CHANGED", target="user", user_id=current_user.id, request=request)
@@ -337,7 +356,21 @@ async def deactivate_account(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> RedirectResponse:
-    if not verify_password(password, current_user.password_hash):
+    try:
+        payload = DeactivateAccountForm.model_validate({"password": password})
+    except ValidationError:
+        return templates.TemplateResponse(
+            request,
+            "dashboard/profile.html",
+            {
+                "title": "Profile",
+                "user": current_user,
+                "error": "Password is incorrect. Account was not deactivated.",
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not verify_password(payload.password, current_user.password_hash):
         return templates.TemplateResponse(
             request,
             "dashboard/profile.html",

@@ -4,6 +4,7 @@ from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import ValidationError
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,9 @@ from app.config import get_settings
 from app.db.database import get_db_session
 from app.dependencies import get_authenticated_user_from_request, redirect_authenticated_user
 from app.db.models import User
+from app.schemas import LoginForm, RegistrationForm, ResendVerificationForm, first_validation_error
 from app.rate_limit import LimitRule, apply_rate_limits, get_ip, safe_identity
+from app.services.deferred_email_service import defer_templated_email
 from app.services.audit_service import write_audit_log
 from app.services.auth_service import (
     authenticate_user,
@@ -38,6 +41,32 @@ LOGIN_IP_RULE = LimitRule(key_prefix="rl:login:ip", limit=20, window_seconds=60)
 LOGIN_EMAIL_RULE = LimitRule(key_prefix="rl:login:email", limit=8, window_seconds=60)
 RESEND_VERIFY_IP_RULE = LimitRule(key_prefix="rl:verify-resend:ip", limit=5, window_seconds=60)
 RESEND_VERIFY_EMAIL_RULE = LimitRule(key_prefix="rl:verify-resend:email", limit=3, window_seconds=600)
+
+
+def render_login_page(
+    request: Request,
+    *,
+    status_code: int = status.HTTP_200_OK,
+    error: str | None = None,
+    success: str | None = None,
+    email_value: str = "",
+    two_factor_code_value: str = "",
+) -> HTMLResponse:
+    context = {
+        "title": "Login",
+        "email_value": email_value,
+        "two_factor_code_value": two_factor_code_value,
+    }
+    if error:
+        context["error"] = error
+    if success:
+        context["success"] = success
+    return templates.TemplateResponse(
+        request,
+        "auth/login.html",
+        context,
+        status_code=status_code,
+    )
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -75,17 +104,31 @@ async def register(
 ) -> HTMLResponse:
     await apply_rate_limits(redis, [(REGISTER_RULE, safe_identity(get_ip(request)))])
 
-    if len(password) < 8:
+    try:
+        payload = RegistrationForm.model_validate(
+            {
+                "email": email,
+                "full_name": full_name,
+                "password": password,
+            }
+        )
+    except ValidationError as exc:
         return templates.TemplateResponse(
             request,
             "auth/register.html",
-            {"title": "Create Account", "error": "Password must be at least 8 characters."},
+            {"title": "Create Account", "error": first_validation_error(exc)},
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    user = await create_user(db=db, email=email.lower().strip(), password=password, full_name=full_name.strip())
+    user = await create_user(
+        db=db,
+        email=payload.email,
+        password=payload.password,
+        full_name=payload.full_name,
+    )
     signed_token, _ = await create_email_verification_token(db=db, user_id=user.id)
     verify_link = f"{settings.app_url}/verify-email?token={quote_plus(signed_token)}"
+    registration_message = "Registration complete. Your verification email will arrive shortly."
 
     try:
         email_job_id = await enqueue_templated_email(
@@ -106,17 +149,28 @@ async def register(
             },
         )
     except JobEnqueueError:
-        return templates.TemplateResponse(
-            request,
-            "auth/register.html",
-            {
-                "title": "Create Account",
-                "error": (
-                    "Account created, but the verification email could not be queued. "
-                    "Please try again from the resend verification form."
-                ),
+        deferred = await defer_templated_email(
+            db,
+            subject="Verify your account",
+            recipients=[user.email],
+            template_name="verify_account",
+            context={
+                "subject": "Verify your account",
+                "preheader": "Confirm your email to activate your FastAuth account.",
+                "user_name": user.full_name or "",
+                "action_url": verify_link,
+                "expires_hours": 24,
             },
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            metadata={
+                "user_id": user.id,
+                "request_id": request.headers.get("x-request-id", ""),
+                "route": "register",
+            },
+            user_id=user.id,
+        )
+        email_job_id = f"deferred:{deferred.id}"
+        registration_message = (
+            "Registration complete. Your verification email is delayed and will be retried automatically."
         )
     await write_audit_log(
         db,
@@ -126,7 +180,7 @@ async def register(
         request=request,
         details=f"verification_email_job_id={email_job_id}",
     )
-    add_toast(request, type="success", message="Registration complete. Your verification email will arrive shortly.")
+    add_toast(request, type="success", message=registration_message)
     if request.headers.get("HX-Request") == "true":
         return HTMLResponse("", headers={"HX-Redirect": "/login"})
     return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -163,8 +217,21 @@ async def resend_verification(
         ],
     )
 
+    try:
+        payload = ResendVerificationForm.model_validate({"email": email})
+    except ValidationError as exc:
+        return templates.TemplateResponse(
+            request,
+            "auth/login.html",
+            {
+                "title": "Login",
+                "error": first_validation_error(exc),
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
     user = (
-        await db.execute(select(User).where(User.email == clean_email, User.is_active.is_(True)))
+        await db.execute(select(User).where(User.email == payload.email, User.is_active.is_(True)))
     ).scalar_one_or_none()
     if user and not user.is_verified:
         signed_token, _ = await create_email_verification_token(db=db, user_id=user.id)
@@ -187,15 +254,25 @@ async def resend_verification(
                 },
             )
         except JobEnqueueError:
-            return templates.TemplateResponse(
-                request,
-                "auth/login.html",
-                {
-                    "title": "Login",
-                    "error": "The verification email could not be queued right now. Please try again shortly.",
+            deferred = await defer_templated_email(
+                db,
+                subject="Verify your account",
+                recipients=[user.email],
+                template_name="verify_account_resend",
+                context={
+                    "subject": "Verify your account",
+                    "preheader": "Here is your new FastAuth verification link.",
+                    "action_url": verify_link,
+                    "expires_hours": 24,
                 },
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                metadata={
+                    "user_id": user.id,
+                    "request_id": request.headers.get("x-request-id", ""),
+                    "route": "verify_email_resend",
+                },
+                user_id=user.id,
             )
+            email_job_id = f"deferred:{deferred.id}"
         await write_audit_log(
             db,
             action="EMAIL_VERIFICATION_RESEND_QUEUED",
@@ -220,7 +297,7 @@ async def login_page(request: Request, db: AsyncSession = Depends(get_db_session
     redirect = await redirect_authenticated_user(request, db)
     if redirect:
         return redirect
-    return templates.TemplateResponse(request, "auth/login.html", {"title": "Login"})
+    return render_login_page(request)
 
 
 @router.post("/login", response_class=HTMLResponse)
@@ -234,6 +311,7 @@ async def login(
 ) -> HTMLResponse:
     clean_email = email.lower().strip()
     ip = get_ip(request)
+    is_htmx = request.headers.get("HX-Request") == "true"
     await apply_rate_limits(
         redis,
         [
@@ -242,68 +320,82 @@ async def login(
         ],
     )
 
-    if await is_locked_out(db, clean_email):
-        return templates.TemplateResponse(
-            request,
-            "auth/login.html",
+    try:
+        payload = LoginForm.model_validate(
             {
-                "title": "Login",
-                "error": (
-                    "Too many failed attempts. Please wait "
-                    f"{settings.login_lockout_minutes} minutes before trying again."
-                ),
-            },
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                "email": email,
+                "password": password,
+                "two_factor_code": two_factor_code,
+            }
+        )
+    except ValidationError:
+        return render_login_page(
+            request,
+            error="Invalid credentials.",
+            email_value=email.strip(),
+            two_factor_code_value=two_factor_code.strip(),
+            status_code=status.HTTP_200_OK if is_htmx else status.HTTP_401_UNAUTHORIZED,
         )
 
-    user = await authenticate_user(db, clean_email, password)
-    if not user:
-        await record_login_attempt(db, clean_email, ip, success=False)
-        return templates.TemplateResponse(
+    if await is_locked_out(db, payload.email):
+        return render_login_page(
             request,
-            "auth/login.html",
-            {"title": "Login", "error": "Invalid credentials."},
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            error=(
+                "Too many failed attempts. Please wait "
+                f"{settings.login_lockout_minutes} minutes before trying again."
+            ),
+            email_value=payload.email,
+            two_factor_code_value=payload.two_factor_code,
+            status_code=status.HTTP_200_OK if is_htmx else status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    user = await authenticate_user(db, payload.email, payload.password)
+    if not user:
+        await record_login_attempt(db, payload.email, ip, success=False)
+        return render_login_page(
+            request,
+            error="Invalid credentials.",
+            email_value=payload.email,
+            two_factor_code_value=payload.two_factor_code,
+            status_code=status.HTTP_200_OK if is_htmx else status.HTTP_401_UNAUTHORIZED,
         )
 
     if not user.is_verified:
-        return templates.TemplateResponse(
+        return render_login_page(
             request,
-            "auth/login.html",
-            {"title": "Login", "error": "Verify your email before signing in."},
-            status_code=status.HTTP_403_FORBIDDEN,
+            error="Verify your email before signing in.",
+            email_value=payload.email,
+            two_factor_code_value=payload.two_factor_code,
+            status_code=status.HTTP_200_OK if is_htmx else status.HTTP_403_FORBIDDEN,
         )
 
     if user.two_factor_enabled:
-        if not two_factor_code:
-            return templates.TemplateResponse(
+        if not payload.two_factor_code:
+            return render_login_page(
                 request,
-                "auth/login.html",
-                {
-                    "title": "Login",
-                    "error": "This account has 2FA enabled. Enter your password and then provide a valid authenticator or backup code.",
-                },
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                error="This account has 2FA enabled. Enter your password and then provide a valid authenticator or backup code.",
+                email_value=payload.email,
+                status_code=status.HTTP_200_OK if is_htmx else status.HTTP_401_UNAUTHORIZED,
             )
 
-        totp_valid = bool(user.two_factor_secret and verify_totp(user.two_factor_secret, two_factor_code))
+        totp_valid = bool(
+            user.two_factor_secret and verify_totp(user.two_factor_secret, payload.two_factor_code)
+        )
         backup_valid = False
         if not totp_valid:
-            backup_valid = await consume_backup_code(db, user.id, two_factor_code)
+            backup_valid = await consume_backup_code(db, user.id, payload.two_factor_code)
 
         if not totp_valid and not backup_valid:
-            await record_login_attempt(db, clean_email, ip, success=False)
-            return templates.TemplateResponse(
+            await record_login_attempt(db, payload.email, ip, success=False)
+            return render_login_page(
                 request,
-                "auth/login.html",
-                {
-                    "title": "Login",
-                    "error": "The authenticator or backup code is invalid. Please try again with a current 6-digit code or an unused backup code.",
-                },
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                error="The authenticator or backup code is invalid. Please try again with a current 6-digit code or an unused backup code.",
+                email_value=payload.email,
+                two_factor_code_value=payload.two_factor_code,
+                status_code=status.HTTP_200_OK if is_htmx else status.HTTP_401_UNAUTHORIZED,
             )
 
-    await record_login_attempt(db, clean_email, ip, success=True)
+    await record_login_attempt(db, payload.email, ip, success=True)
     session_token = await create_session(
         db=db,
         user_id=user.id,
@@ -313,7 +405,6 @@ async def login(
     await write_audit_log(db, action="LOGIN", target="session", user_id=user.id, request=request)
     add_toast(request, type="success", message="Welcome back.")
 
-    is_htmx = request.headers.get("HX-Request") == "true"
     response = (
         HTMLResponse("", headers={"HX-Redirect": "/dashboard"})
         if is_htmx

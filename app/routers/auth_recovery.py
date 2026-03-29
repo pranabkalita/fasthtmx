@@ -4,6 +4,7 @@ from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import ValidationError
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,11 +15,12 @@ from app.db.database import get_db_session
 from app.dependencies import redirect_authenticated_user
 from app.db.models import User
 from app.rate_limit import LimitRule, apply_rate_limits, get_ip, safe_identity
+from app.schemas import ForgotPasswordForm, ResetPasswordForm, first_validation_error
 from app.services.audit_service import write_audit_log
+from app.services.deferred_email_service import defer_templated_email
 from app.services.auth_service import consume_reset_token, create_reset_token, revoke_all_sessions
 from app.services.flash_service import add_toast
 from app.services.job_queue import JobEnqueueError, enqueue_templated_email
-from app.services.password_policy import validate_password_confirmation, validate_strong_password
 from app.templating import templates
 
 router = APIRouter(tags=["auth"])
@@ -48,8 +50,17 @@ async def forgot_password(
 ) -> HTMLResponse:
     await apply_rate_limits(redis, [(FORGOT_RULE, safe_identity(get_ip(request)))])
 
-    clean_email = email.lower().strip()
-    user = (await db.execute(select(User).where(User.email == clean_email, User.is_active.is_(True)))).scalar_one_or_none()
+    try:
+        payload = ForgotPasswordForm.model_validate({"email": email})
+    except ValidationError:
+        add_toast(request, type="success", message="If your email exists, a reset link will arrive shortly.")
+        if request.headers.get("HX-Request") == "true":
+            return HTMLResponse("", headers={"HX-Redirect": "/login"})
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    user = (
+        await db.execute(select(User).where(User.email == payload.email, User.is_active.is_(True)))
+    ).scalar_one_or_none()
     if user:
         signed_token, _ = await create_reset_token(db=db, user_id=user.id)
         reset_link = f"{settings.app_url}/reset-password?token={quote_plus(signed_token)}"
@@ -71,15 +82,25 @@ async def forgot_password(
                 },
             )
         except JobEnqueueError:
-            return templates.TemplateResponse(
-                request,
-                "auth/forgot_password.html",
-                {
-                    "title": "Forgot Password",
-                    "error": "The reset email could not be queued right now. Please try again shortly.",
+            deferred = await defer_templated_email(
+                db,
+                subject="Reset your password",
+                recipients=[user.email],
+                template_name="reset_password",
+                context={
+                    "subject": "Reset your password",
+                    "preheader": "Reset your FastAuth password securely.",
+                    "action_url": reset_link,
+                    "expires_hours": 24,
                 },
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                metadata={
+                    "user_id": user.id,
+                    "request_id": request.headers.get("x-request-id", ""),
+                    "route": "forgot_password",
+                },
+                user_id=user.id,
             )
+            email_job_id = f"deferred:{deferred.id}"
         await write_audit_log(
             db,
             action="PASSWORD_RESET_EMAIL_QUEUED",
@@ -128,37 +149,31 @@ async def reset_password(
         else status.HTTP_400_BAD_REQUEST
     )
 
-    mismatch_error = validate_password_confirmation(
-        new_password,
-        confirm_new_password,
-        label="New password",
+    try:
+        payload = ResetPasswordForm.model_validate(
+            {
+                "token": token,
+                "new_password": new_password,
+                "confirm_new_password": confirm_new_password,
+            }
+        )
+    except ValidationError as exc:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_password.html",
+            {
+                "title": "Reset Password",
+                "token": token,
+                "reset_password_error": first_validation_error(exc),
+            },
+            status_code=error_status_code,
+        )
+
+    user = await consume_reset_token(
+        db=db,
+        signed_token=payload.token,
+        new_password=payload.new_password,
     )
-    if mismatch_error:
-        return templates.TemplateResponse(
-            request,
-            "auth/reset_password.html",
-            {
-                "title": "Reset Password",
-                "token": token,
-                "reset_password_error": mismatch_error,
-            },
-            status_code=error_status_code,
-        )
-
-    strength_error = validate_strong_password(new_password, label="New password")
-    if strength_error:
-        return templates.TemplateResponse(
-            request,
-            "auth/reset_password.html",
-            {
-                "title": "Reset Password",
-                "token": token,
-                "reset_password_error": strength_error,
-            },
-            status_code=error_status_code,
-        )
-
-    user = await consume_reset_token(db=db, signed_token=token, new_password=new_password)
     await revoke_all_sessions(db=db, user_id=user.id)
     await write_audit_log(db, action="PASSWORD_RESET", target="user", user_id=user.id, request=request)
     add_toast(request, type="success", message="Password reset complete. Please sign in.")

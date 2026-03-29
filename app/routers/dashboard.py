@@ -1,6 +1,6 @@
-from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib.parse import quote_plus
@@ -9,8 +9,10 @@ from app.config import get_settings
 from app.db.database import get_db_session
 from app.dependencies import get_current_user
 from app.db.models import User
+from app.schemas import ProfileUpdateForm, first_validation_error
 from app.services.auth_service import create_email_verification_token
 from app.services.audit_service import write_audit_log
+from app.services.deferred_email_service import defer_templated_email
 from app.services.flash_service import add_toast
 from app.services.job_queue import JobEnqueueError, enqueue_templated_email
 from app.templating import templates
@@ -56,39 +58,29 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> HTMLResponse:
-    clean_name = full_name.strip()
-    clean_email = email.strip().lower()
-
-    if len(clean_name) > 120:
-        return templates.TemplateResponse(
-            request,
-            "dashboard/profile.html",
-            {
-                "title": "Profile",
-                "user": current_user,
-                "error": "Name must be 120 characters or fewer.",
-            },
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
-
     try:
-        normalized_email = validate_email(clean_email, check_deliverability=False).normalized
-    except EmailNotValidError:
+        payload = ProfileUpdateForm.model_validate(
+            {
+                "full_name": full_name,
+                "email": email,
+            }
+        )
+    except ValidationError as exc:
         return templates.TemplateResponse(
             request,
             "dashboard/profile.html",
             {
                 "title": "Profile",
                 "user": current_user,
-                "error": "Please enter a valid email address.",
+                "error": first_validation_error(exc),
             },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    if normalized_email != current_user.email:
+    if payload.email != current_user.email:
         existing = (
             await db.execute(
-                select(User).where(User.email == normalized_email, User.id != current_user.id)
+                select(User).where(User.email == payload.email, User.id != current_user.id)
             )
         ).scalar_one_or_none()
         if existing:
@@ -103,9 +95,9 @@ async def update_profile(
                 status_code=status.HTTP_409_CONFLICT,
             )
 
-    has_email_change = normalized_email != current_user.email
-    current_user.full_name = clean_name
-    current_user.email = normalized_email
+    has_email_change = payload.email != current_user.email
+    current_user.full_name = payload.full_name
+    current_user.email = payload.email
     success_message = "Profile updated successfully."
 
     if has_email_change:
@@ -136,17 +128,30 @@ async def update_profile(
                 },
             )
         except JobEnqueueError:
-            return templates.TemplateResponse(
-                request,
-                "dashboard/profile.html",
-                {
-                    "title": "Profile",
-                    "user": current_user,
-                    "error": "Profile updated, but the verification email could not be queued. Please try updating again shortly.",
+            deferred = await defer_templated_email(
+                db,
+                subject="Verify your new email address",
+                recipients=[current_user.email],
+                template_name="verify_new_email",
+                context={
+                    "subject": "Verify your new email address",
+                    "preheader": "Confirm your new email to keep account access.",
+                    "action_url": verify_link,
+                    "expires_hours": 24,
                 },
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                metadata={
+                    "user_id": current_user.id,
+                    "request_id": request.headers.get("x-request-id", ""),
+                    "route": "profile_update",
+                },
+                user_id=current_user.id,
             )
-        success_message = "Profile updated. Your verification email will arrive shortly."
+            email_job_id = f"deferred:{deferred.id}"
+            success_message = (
+                "Profile updated. Your verification email is delayed and will be retried automatically."
+            )
+        else:
+            success_message = "Profile updated. Your verification email will arrive shortly."
 
     await write_audit_log(
         db,
