@@ -30,7 +30,7 @@
     <section class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-base font-semibold text-slate-900">Cash Flow</h2>
-        <a href="/audit/logs" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Manage</a>
+        <a href="/audit-logs" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Manage</a>
       </div>
 
       <div class="grid gap-4 lg:grid-cols-[1fr_220px]">
@@ -79,7 +79,7 @@
       <article class="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm">
         <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Security Status</p>
         <p class="mt-2 text-lg font-semibold text-slate-900">2FA {{ 'Enabled' if user.two_factor_enabled else 'Disabled' }}</p>
-        <a href="/2fa/setup" class="mt-2 inline-flex text-xs font-semibold text-emerald-700 hover:underline">Configure 2FA</a>
+        <a href="/profile/2fa/setup" class="mt-2 inline-flex text-xs font-semibold text-emerald-700 hover:underline">Configure 2FA</a>
       </article>
       <article class="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm">
         <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Active Sessions</p>

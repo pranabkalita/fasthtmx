@@ -5,7 +5,7 @@
     <h1 class="mb-2 text-base font-semibold text-slate-900">Two-Factor Authentication</h1>
     <p class="mb-4 text-sm text-slate-600">Scan this QR code in your authenticator app, then confirm with a 6-digit code.</p>
     <img src="data:image/png;base64,{{ qr_data }}" alt="2FA QR code" class="mb-4 rounded-xl border border-slate-200" />
-    <form action="/2fa/enable" method="post" class="space-y-3">
+    <form action="/profile/2fa/enable" method="post" class="space-y-3">
       <input type="hidden" name="secret" value="{{ secret }}" />
       <input type="text" name="code" placeholder="6-digit code" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
       <button type="submit" class="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500">Enable 2FA</button>

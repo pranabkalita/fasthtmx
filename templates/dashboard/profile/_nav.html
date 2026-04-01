@@ -1,0 +1,14 @@
+<nav class="w-full shrink-0 space-y-1 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm ring-1 ring-slate-200/60 lg:w-52" aria-label="Profile sections">
+  <a href="/profile"
+     class="block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {% if profile_section == 'identity' %}bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-200/80{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}"
+     {% if profile_section == 'identity' %}aria-current="page"{% endif %}>Profile</a>
+  <a href="/profile/change-password"
+     class="block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {% if profile_section == 'password' %}bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-200/80{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}"
+     {% if profile_section == 'password' %}aria-current="page"{% endif %}>Change password</a>
+  <a href="/profile/2fa"
+     class="block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {% if profile_section == 'two_factor' %}bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-200/80{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}"
+     {% if profile_section == 'two_factor' %}aria-current="page"{% endif %}>2FA</a>
+  <a href="/profile/deactivate-account"
+     class="block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {% if profile_section == 'deactivate' %}bg-rose-50 font-semibold text-rose-900 ring-1 ring-rose-200/80{% else %}text-slate-600 hover:bg-rose-50/60 hover:text-rose-900{% endif %}"
+     {% if profile_section == 'deactivate' %}aria-current="page"{% endif %}>Deactivate account</a>
+</nav>

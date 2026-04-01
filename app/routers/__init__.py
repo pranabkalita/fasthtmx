@@ -1,11 +1,13 @@
-from . import admin_tools, audit, auth, auth_public, auth_recovery, dashboard, security
+from . import audit, auth, auth_public, auth_recovery, dashboard, email, profile, queue, sessions
 
 __all__ = [
-	"auth",
-	"auth_public",
-	"auth_recovery",
-	"dashboard",
-	"audit",
-	"security",
-	"admin_tools",
+    "auth",
+    "auth_public",
+    "auth_recovery",
+    "dashboard",
+    "profile",
+    "sessions",
+    "audit",
+    "email",
+    "queue",
 ]

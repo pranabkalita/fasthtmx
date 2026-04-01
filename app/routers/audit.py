@@ -10,7 +10,7 @@ from app.db.models import AuditLog, User
 from app.dependencies import get_admin_user
 from app.templating import templates
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(tags=["admin"])
 
 
 def _parse_optional_date(raw: str) -> date | None:

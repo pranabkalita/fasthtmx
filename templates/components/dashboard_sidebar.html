@@ -44,32 +44,54 @@
     <p class="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">General</p>
     <nav class="space-y-1">
       <a href="/dashboard" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'dashboard' else 'text-slate-600 hover:bg-slate-100' }}">Dashboard</a>
-      <a href="/profile" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'profile' else 'text-slate-600 hover:bg-slate-100' }}">Profile</a>
       <a href="/sessions" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'sessions' else 'text-slate-600 hover:bg-slate-100' }}">Sessions</a>
     </nav>
 
     <p class="mb-2 mt-6 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Support</p>
     <nav class="space-y-1 pb-2">
       {% if user.is_admin %}
-        <a href="/admin/audit-logs" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'audit' else 'text-slate-600 hover:bg-slate-100' }}">Audit Logs</a>
-        <a href="/dev/email-previews" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'email_previews' else 'text-slate-600 hover:bg-slate-100' }}">Email Previews</a>
-        <a href="/admin/queue-status" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'queue_status' else 'text-slate-600 hover:bg-slate-100' }}">Queue Status</a>
+        <a href="/audit-logs" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'audit' else 'text-slate-600 hover:bg-slate-100' }}">Audit Logs</a>
+        <a href="/email-previes" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'email_previews' else 'text-slate-600 hover:bg-slate-100' }}">Email Previews</a>
+        <a href="/queue-status" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'queue_status' else 'text-slate-600 hover:bg-slate-100' }}">Queue Status</a>
       {% endif %}
     </nav>
   </div>
 
   <div class="shrink-0 border-t border-slate-200/80 bg-white pt-4 lg:bg-white/90">
-    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <p class="text-xs font-semibold text-slate-700">{{ user.full_name or user.email }}</p>
-      <p class="mt-1 text-xs text-slate-500">{{ user.email }}</p>
-      <span class="mt-2 inline-flex rounded-full px-2 py-1 text-[11px] font-semibold {{ 'bg-emerald-100 text-emerald-700' if user.is_verified else 'bg-amber-100 text-amber-700' }}">
-        {{ 'Verified' if user.is_verified else 'Not Verified' }}
-      </span>
-      <form action="/logout" method="post" hx-boost="false" class="mt-3">
-        <button type="submit" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">
-          Logout
-        </button>
-      </form>
+    <p class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Account</p>
+    <div class="rounded-xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3 shadow-sm ring-1 ring-slate-200/60">
+      <div class="flex items-start gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800">
+          {{ (user.full_name or user.email)[0]|upper }}
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-sm font-semibold text-slate-900">{{ user.full_name or user.email }}</p>
+          <p class="truncate text-xs text-slate-500">{{ user.email }}</p>
+          <span class="mt-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold {{ 'bg-emerald-100 text-emerald-700' if user.is_verified else 'bg-amber-100 text-amber-700' }}">
+            {{ 'Verified' if user.is_verified else 'Not Verified' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="mt-3 space-y-2 border-t border-slate-200/80 pt-3">
+        <a href="/profile"
+           class="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+           {{ 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/20 hover:bg-emerald-500' if active_page == 'profile' else 'bg-white text-slate-700 shadow-sm ring-1 ring-slate-200/80 hover:bg-slate-50' }}">
+          <svg class="h-5 w-5 shrink-0 opacity-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+          </svg>
+          <span class="flex flex-col items-start leading-tight">
+            <span>Profile &amp; security</span>
+            <span class="text-[11px] font-normal opacity-80">Password, 2FA, email</span>
+          </span>
+        </a>
+
+        <form action="/logout" method="post" hx-boost="false">
+          <button type="submit" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800">
+            Logout
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 </aside>

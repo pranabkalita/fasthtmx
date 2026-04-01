@@ -1,0 +1,18 @@
+{% extends 'layouts/dashboard_base.html' %}
+{% set active_page = 'profile' %}
+{% block dashboard_body %}
+  <div class="space-y-6">
+    <section class="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Account Settings</p>
+      <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">Profile &amp; Security</h1>
+      <p class="mt-1 text-sm text-slate-600">Manage your identity information, credentials, and account protection from one place.</p>
+    </section>
+
+    <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+      {% include 'dashboard/profile/_nav.html' %}
+      <div class="min-w-0 flex-1">
+        {% block profile_panel %}{% endblock %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

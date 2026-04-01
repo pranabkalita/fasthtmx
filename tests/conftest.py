@@ -82,7 +82,7 @@ def mock_email_queue():
     """Mock queued email dispatch in route handlers."""
     with patch("app.routers.auth_public.enqueue_templated_email", new_callable=AsyncMock) as auth_public_queue:
         with patch("app.routers.auth_recovery.enqueue_templated_email", new_callable=AsyncMock) as auth_recovery_queue:
-            with patch("app.routers.dashboard.enqueue_templated_email", new_callable=AsyncMock) as dashboard_queue:
+            with patch("app.routers.profile.enqueue_templated_email", new_callable=AsyncMock) as dashboard_queue:
                 yield {
                     "auth_public": auth_public_queue,
                     "auth_recovery": auth_recovery_queue,
@@ -100,7 +100,7 @@ def test_client(mock_redis, mock_send_email, mock_email_queue):
     from app.cache import get_redis
     from app.db.database import get_db_session, AsyncSessionLocal
     from app.config import get_settings
-    from app.routers import admin_tools, audit, auth, dashboard, security
+    from app.routers import audit, auth, dashboard, email, profile, queue, sessions
     
     settings_local = get_settings()
     
@@ -119,9 +119,11 @@ def test_client(mock_redis, mock_send_email, mock_email_queue):
     # Include routers
     test_app.include_router(auth.router)
     test_app.include_router(dashboard.router)
+    test_app.include_router(profile.router)
+    test_app.include_router(sessions.router)
     test_app.include_router(audit.router)
-    test_app.include_router(security.router)
-    test_app.include_router(admin_tools.router)
+    test_app.include_router(email.router)
+    test_app.include_router(queue.router)
     
     # Add healthz endpoint
     from fastapi.responses import HTMLResponse, JSONResponse
