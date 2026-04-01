@@ -42,7 +42,7 @@ async def logout(
     return redirect
 
 
-@router.get("/sessions", response_class=HTMLResponse)
+@router.get("/profile/sessions", response_class=HTMLResponse)
 async def sessions_page(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -84,11 +84,12 @@ async def sessions_page(
             "user": current_user,
             "sessions": sessions,
             "current_session_id": current_session_id,
+            "profile_section": "sessions",
         },
     )
 
 
-@router.post("/sessions/{session_id}/revoke")
+@router.post("/profile/sessions/{session_id}/revoke")
 async def revoke_single_session(
     request: Request,
     session_id: str,
@@ -118,10 +119,10 @@ async def revoke_single_session(
         return redirect
 
     add_toast(request, type="success", message="Session revoked.")
-    return RedirectResponse(url="/sessions", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/profile/sessions", status_code=status.HTTP_303_SEE_OTHER)
 
 
-@router.post("/sessions/logout-all")
+@router.post("/profile/sessions/logout-all")
 async def logout_all_devices(
     request: Request,
     current_user: User = Depends(get_current_user),

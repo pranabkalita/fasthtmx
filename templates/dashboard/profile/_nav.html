@@ -8,6 +8,9 @@
   <a href="/profile/2fa"
      class="block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {% if profile_section == 'two_factor' %}bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-200/80{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}"
      {% if profile_section == 'two_factor' %}aria-current="page"{% endif %}>2FA</a>
+  <a href="/profile/sessions"
+     class="block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {% if profile_section == 'sessions' %}bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-200/80{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}"
+     {% if profile_section == 'sessions' %}aria-current="page"{% endif %}>Sessions</a>
   <a href="/profile/deactivate-account"
      class="block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {% if profile_section == 'deactivate' %}bg-rose-50 font-semibold text-rose-900 ring-1 ring-rose-200/80{% else %}text-slate-600 hover:bg-rose-50/60 hover:text-rose-900{% endif %}"
      {% if profile_section == 'deactivate' %}aria-current="page"{% endif %}>Deactivate account</a>
