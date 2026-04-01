@@ -310,6 +310,7 @@ async def login(
     email: str = Form(...),
     password: str = Form(...),
     two_factor_code: str = Form(""),
+    remember_me: str = Form(""),
     db: AsyncSession = Depends(get_db_session),
     redis: Redis = Depends(get_redis),
 ) -> HTMLResponse:
@@ -330,6 +331,7 @@ async def login(
                 "email": email,
                 "password": password,
                 "two_factor_code": two_factor_code,
+                "remember_me": str(remember_me).lower() in {"1", "true", "on", "yes"},
             }
         )
     except ValidationError:
@@ -411,6 +413,7 @@ async def login(
         user_id=user.id,
         ip_address=ip,
         user_agent=request.headers.get("user-agent", ""),
+        remember_me=payload.remember_me,
     )
     await write_audit_log(db, action="LOGIN", target="session", user_id=user.id, request=request)
     add_toast(request, type="success", message="Welcome back.")
@@ -426,6 +429,10 @@ async def login(
         httponly=True,
         secure=not settings.debug,
         samesite="lax",
-        max_age=settings.session_max_age,
+        max_age=(
+            settings.remember_me_absolute_timeout_seconds
+            if payload.remember_me and settings.remember_me_enabled
+            else settings.session_absolute_timeout_seconds
+        ),
     )
     return response

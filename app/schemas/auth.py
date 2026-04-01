@@ -49,6 +49,7 @@ class LoginForm(BaseModel):
     email: str
     password: str
     two_factor_code: str = ""
+    remember_me: bool = False
 
     @field_validator("email")
     @classmethod

@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.database import get_db_session
-from app.db.models import User
-from app.dependencies import get_current_user
+from app.db.models import Session, User
+from app.dependencies import get_current_session, get_current_user
 from app.schemas import (
     ChangePasswordForm,
     DeactivateAccountForm,
@@ -27,8 +27,10 @@ from app.services.auth_service import (
     build_totp_uri,
     create_email_verification_token,
     get_user_totp_secret,
+    mark_session_step_up_verified,
     reset_backup_codes,
     revoke_all_sessions,
+    session_step_up_is_fresh,
     set_user_totp_secret,
     verify_totp,
 )
@@ -168,6 +170,7 @@ async def update_profile(
     full_name: str = Form(""),
     email: str = Form(...),
     current_user: User = Depends(get_current_user),
+    current_session: Session = Depends(get_current_session),
     db: AsyncSession = Depends(get_db_session),
 ) -> HTMLResponse:
     try:
@@ -210,6 +213,18 @@ async def update_profile(
             )
 
     has_email_change = payload.email != current_user.email
+    if has_email_change and not session_step_up_is_fresh(current_session):
+        return templates.TemplateResponse(
+            request,
+            "dashboard/profile/index.html",
+            {
+                "title": "Profile",
+                "user": current_user,
+                "profile_section": "identity",
+                "error": "For email changes, please re-authenticate recently and try again.",
+            },
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
     current_user.full_name = payload.full_name
     current_user.email = payload.email
     success_message = "Profile updated successfully."
@@ -360,6 +375,7 @@ async def disable_2fa(
         )
 
     current_user.two_factor_enabled = False
+    mark_session_step_up_verified(await get_current_session(request, db))
     set_user_totp_secret(current_user, None)
     await db.commit()
     await write_audit_log(db, action="2FA_DISABLED", target="user", user_id=current_user.id, request=request)
@@ -418,6 +434,7 @@ async def change_password(
             status_code=error_status_code,
         )
 
+    mark_session_step_up_verified(await get_current_session(request, db))
     current_user.password_hash = hash_password(payload.new_password)
     await db.commit()
     await revoke_all_sessions(db, current_user.id)
@@ -464,6 +481,7 @@ async def deactivate_account(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
+    mark_session_step_up_verified(await get_current_session(request, db))
     current_user.is_active = False
     current_user.deleted_at = datetime.now(UTC)
     await db.commit()

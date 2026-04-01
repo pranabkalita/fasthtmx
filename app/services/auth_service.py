@@ -140,16 +140,33 @@ async def create_session(
     user_id: str,
     ip_address: str | None,
     user_agent: str | None,
+    remember_me: bool = False,
 ) -> str:
     raw_session_token = generate_raw_token()
     token_hash = hash_token(raw_session_token)
-    expires_at = utcnow_naive() + timedelta(seconds=settings.session_max_age)
+    now = utcnow_naive()
+    idle_timeout = (
+        settings.remember_me_idle_timeout_seconds
+        if remember_me and settings.remember_me_enabled
+        else settings.session_idle_timeout_seconds
+    )
+    absolute_timeout = (
+        settings.remember_me_absolute_timeout_seconds
+        if remember_me and settings.remember_me_enabled
+        else settings.session_absolute_timeout_seconds
+    )
+    expires_at = now + timedelta(seconds=idle_timeout)
+    absolute_expires_at = now + timedelta(seconds=absolute_timeout)
     db.add(
         Session(
             user_id=user_id,
             token_hash=token_hash,
             ip_address=ip_address,
             user_agent=user_agent,
+            last_seen_at=now,
+            absolute_expires_at=absolute_expires_at,
+            step_up_verified_at=now,
+            remember_me=remember_me and settings.remember_me_enabled,
             expires_at=expires_at,
         )
     )
@@ -178,6 +195,42 @@ async def revoke_session_by_id(db: AsyncSession, user_id: str, session_id: str) 
 async def revoke_all_sessions(db: AsyncSession, user_id: str) -> None:
     await db.execute(delete(Session).where(Session.user_id == user_id))
     await db.commit()
+
+
+def session_idle_timeout_seconds(session_row: Session) -> int:
+    if session_row.remember_me and settings.remember_me_enabled:
+        return settings.remember_me_idle_timeout_seconds
+    return settings.session_idle_timeout_seconds
+
+
+def should_renew_session(session_row: Session) -> bool:
+    remaining = (as_utc_naive(session_row.expires_at) - utcnow_naive()).total_seconds()
+    return remaining <= settings.session_renewal_threshold_seconds
+
+
+def renew_session_expiry(session_row: Session) -> None:
+    now = utcnow_naive()
+    absolute = as_utc_naive(session_row.absolute_expires_at)
+    renewed_expiry = now + timedelta(seconds=session_idle_timeout_seconds(session_row))
+    session_row.last_seen_at = now
+    session_row.expires_at = min(renewed_expiry, absolute)
+
+
+def session_is_idle_expired(session_row: Session) -> bool:
+    return as_utc_naive(session_row.expires_at) < utcnow_naive()
+
+
+def session_is_absolute_expired(session_row: Session) -> bool:
+    return as_utc_naive(session_row.absolute_expires_at) < utcnow_naive()
+
+
+def session_step_up_is_fresh(session_row: Session) -> bool:
+    age_seconds = (utcnow_naive() - as_utc_naive(session_row.step_up_verified_at)).total_seconds()
+    return age_seconds <= settings.step_up_window_seconds
+
+
+def mark_session_step_up_verified(session_row: Session) -> None:
+    session_row.step_up_verified_at = utcnow_naive()
 
 
 async def create_reset_token(db: AsyncSession, user_id: str) -> tuple[str, datetime]:

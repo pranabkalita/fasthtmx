@@ -25,6 +25,15 @@ class Settings(BaseSettings):
 
     session_cookie_name: str = Field(alias="SESSION_COOKIE_NAME", default="session_id")
     session_max_age: int = Field(alias="SESSION_MAX_AGE", default=604800)
+    session_idle_timeout_seconds: int = Field(alias="SESSION_IDLE_TIMEOUT_SECONDS", default=1800)
+    session_absolute_timeout_seconds: int = Field(alias="SESSION_ABSOLUTE_TIMEOUT_SECONDS", default=43200)
+    session_renewal_threshold_seconds: int = Field(alias="SESSION_RENEWAL_THRESHOLD_SECONDS", default=300)
+    remember_me_enabled: bool = Field(alias="REMEMBER_ME_ENABLED", default=False)
+    remember_me_idle_timeout_seconds: int = Field(alias="REMEMBER_ME_IDLE_TIMEOUT_SECONDS", default=86400)
+    remember_me_absolute_timeout_seconds: int = Field(
+        alias="REMEMBER_ME_ABSOLUTE_TIMEOUT_SECONDS", default=604800
+    )
+    step_up_window_seconds: int = Field(alias="STEP_UP_WINDOW_SECONDS", default=900)
     reset_token_expiry_minutes: int = Field(alias="RESET_TOKEN_EXPIRY_MINUTES", default=30)
 
     mail_username: str = Field(alias="MAIL_USERNAME")

@@ -2,13 +2,13 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.database import get_db_session
 from app.db.models import Session, User
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_recent_step_up
 from app.security import hash_token
 from app.services.audit_service import write_audit_log
 from app.services.auth_service import revoke_all_sessions, revoke_session, revoke_session_by_id
@@ -66,7 +66,13 @@ async def sessions_page(
     sessions = (
         await db.execute(
             select(Session)
-            .where(Session.user_id == current_user.id, Session.expires_at >= datetime.now(UTC))
+            .where(
+                and_(
+                    Session.user_id == current_user.id,
+                    Session.expires_at >= datetime.now(UTC),
+                    Session.absolute_expires_at >= datetime.now(UTC),
+                )
+            )
             .order_by(Session.created_at.desc())
         )
     ).scalars().all()
@@ -119,6 +125,7 @@ async def revoke_single_session(
 async def logout_all_devices(
     request: Request,
     current_user: User = Depends(get_current_user),
+    _: Session = Depends(require_recent_step_up),
     db: AsyncSession = Depends(get_db_session),
 ) -> RedirectResponse:
     await revoke_all_sessions(db, current_user.id)

@@ -174,7 +174,14 @@ async def cleanup_expired_auth_artifacts(ctx: dict | None = None) -> int:
     now = utcnow_naive()
     login_cutoff = now - timedelta(days=30)
     async with AsyncSessionLocal() as session:
-        session_result = await session.execute(delete(Session).where(Session.expires_at < now))
+        session_result = await session.execute(
+            delete(Session).where(
+                or_(
+                    Session.expires_at < now,
+                    Session.absolute_expires_at < now,
+                )
+            )
+        )
         verify_result = await session.execute(
             delete(EmailVerificationToken).where(
                 or_(
