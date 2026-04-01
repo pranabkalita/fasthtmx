@@ -16,7 +16,7 @@ from app.services.flash_service import add_toast
 from app.services.job_queue import get_recent_email_job_results, is_job_queue_healthy
 from app.templating import templates
 
-router = APIRouter(tags=["queue"])
+router = APIRouter(prefix="/admin", tags=["queue"])
 
 
 @router.get("/queue-status", response_class=HTMLResponse)
@@ -31,7 +31,7 @@ async def queue_status_page(
     recent_deferred_jobs = await get_recent_deferred_email_jobs(db, limit=12)
     return templates.TemplateResponse(
         request,
-        "dev/queue_status.html",
+        "admin/queue/status.html",
         {
             "title": "Queue Status",
             "user": current_user,
@@ -56,4 +56,4 @@ async def requeue_failed_deferred_jobs(
         add_toast(request, type="success", message=f"Requeued {count} failed deferred email jobs.")
     else:
         add_toast(request, type="success", message="No failed deferred email jobs to requeue.")
-    return RedirectResponse(url="/queue-status", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/queue-status", status_code=status.HTTP_303_SEE_OTHER)

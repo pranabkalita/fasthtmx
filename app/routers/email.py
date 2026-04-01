@@ -11,7 +11,7 @@ from app.dependencies import get_admin_user
 from app.services.email_service import render_email_bodies
 from app.templating import templates
 
-router = APIRouter(tags=["email"])
+router = APIRouter(prefix="/dev", tags=["email"])
 settings = get_settings()
 
 EMAIL_PREVIEW_TEMPLATES = (
@@ -36,14 +36,14 @@ def _preview_context(template_name: str, request: Request) -> dict[str, str | in
     }
 
 
-@router.get("/email-previes", response_class=HTMLResponse)
+@router.get("/email-previews", response_class=HTMLResponse)
 async def email_previews_index(
     request: Request,
     current_user: User = Depends(get_admin_user),
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "dev/email_previews_index.html",
+        "dev/email/index.html",
         {
             "title": "Email Previews",
             "user": current_user,
@@ -52,7 +52,7 @@ async def email_previews_index(
     )
 
 
-@router.get("/email-previes/{template_name}", response_class=HTMLResponse)
+@router.get("/email-previews/{template_name}", response_class=HTMLResponse)
 async def email_preview_html(
     template_name: str,
     request: Request,
@@ -63,7 +63,7 @@ async def email_preview_html(
     html_body, _ = render_email_bodies(template_name=template_name, context=_preview_context(template_name, request))
     return templates.TemplateResponse(
         request,
-        "dev/email_preview_html.html",
+        "dev/email/preview_html.html",
         {
             "title": f"Email Preview: {template_name}",
             "user": current_user,
@@ -73,7 +73,7 @@ async def email_preview_html(
     )
 
 
-@router.get("/email-previes/{template_name}/text", response_class=HTMLResponse)
+@router.get("/email-previews/{template_name}/text", response_class=HTMLResponse)
 async def email_preview_text(
     template_name: str,
     request: Request,
@@ -84,7 +84,7 @@ async def email_preview_text(
     _, text_body = render_email_bodies(template_name=template_name, context=_preview_context(template_name, request))
     return templates.TemplateResponse(
         request,
-        "dev/email_preview_text.html",
+        "dev/email/preview_text.html",
         {
             "title": f"Email Preview Text: {template_name}",
             "user": current_user,

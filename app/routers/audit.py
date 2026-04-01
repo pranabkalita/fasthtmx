@@ -10,7 +10,7 @@ from app.db.models import AuditLog, User
 from app.dependencies import get_admin_user
 from app.templating import templates
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def _parse_optional_date(raw: str) -> date | None:
@@ -104,12 +104,12 @@ async def audit_logs(
     if is_htmx and hx_target == "audit-logs-panel":
         return templates.TemplateResponse(
             request,
-            "dashboard/_audit_logs_panel.html",
+            "admin/audit/panel.html",
             context,
         )
 
     return templates.TemplateResponse(
         request,
-        "dashboard/audit_logs.html",
+        "admin/audit/index.html",
         context,
     )

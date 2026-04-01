@@ -49,9 +49,9 @@
     <p class="mb-2 mt-6 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Support</p>
     <nav class="space-y-1 pb-2">
       {% if user.is_admin %}
-        <a href="/audit-logs" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'audit' else 'text-slate-600 hover:bg-slate-100' }}">Audit Logs</a>
-        <a href="/email-previes" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'email_previews' else 'text-slate-600 hover:bg-slate-100' }}">Email Previews</a>
-        <a href="/queue-status" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'queue_status' else 'text-slate-600 hover:bg-slate-100' }}">Queue Status</a>
+        <a href="/admin/audit-logs" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'audit' else 'text-slate-600 hover:bg-slate-100' }}">Audit Logs</a>
+        <a href="/dev/email-previews" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'email_previews' else 'text-slate-600 hover:bg-slate-100' }}">Email Previews</a>
+        <a href="/admin/queue-status" class="flex items-center rounded-lg px-3 py-2 text-sm {{ 'bg-emerald-50 font-semibold text-emerald-700' if active_page == 'queue_status' else 'text-slate-600 hover:bg-slate-100' }}">Queue Status</a>
       {% endif %}
     </nav>
   </div>

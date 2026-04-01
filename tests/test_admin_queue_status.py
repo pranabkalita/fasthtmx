@@ -100,7 +100,7 @@ def test_admin_can_view_queue_status_with_deferred_section(test_client):
     test_client.cookies.set(settings.session_cookie_name, session_token)
     _dispose_engine()
 
-    response = test_client.get("/queue-status", follow_redirects=False)
+    response = test_client.get("/admin/queue-status", follow_redirects=False)
 
     try:
         assert response.status_code == 200
@@ -116,7 +116,7 @@ def test_non_admin_cannot_view_queue_status(test_client):
     test_client.cookies.set(settings.session_cookie_name, session_token)
     _dispose_engine()
 
-    response = test_client.get("/queue-status", follow_redirects=False)
+    response = test_client.get("/admin/queue-status", follow_redirects=False)
 
     try:
         assert response.status_code == 403
@@ -131,11 +131,11 @@ def test_admin_can_requeue_failed_deferred_jobs(test_client):
     test_client.cookies.set(settings.session_cookie_name, session_token)
     _dispose_engine()
 
-    response = test_client.post("/queue-status/deferred/requeue-failed", follow_redirects=False)
+    response = test_client.post("/admin/queue-status/deferred/requeue-failed", follow_redirects=False)
 
     try:
         assert response.status_code == 303
-        assert response.headers["location"] == "/queue-status"
+        assert response.headers["location"] == "/admin/queue-status"
         row = _run(_get_deferred_job(user_id=user.id))
         assert row is not None
         assert row.status == "pending"
@@ -151,7 +151,7 @@ def test_non_admin_cannot_requeue_failed_deferred_jobs(test_client):
     test_client.cookies.set(settings.session_cookie_name, session_token)
     _dispose_engine()
 
-    response = test_client.post("/queue-status/deferred/requeue-failed", follow_redirects=False)
+    response = test_client.post("/admin/queue-status/deferred/requeue-failed", follow_redirects=False)
 
     try:
         assert response.status_code == 403

@@ -50,7 +50,7 @@ async def profile_change_password(
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "dashboard/profile/change_password.html",
+        "profile/change_password.html",
         {
             "title": "Change password",
             "user": current_user,
@@ -65,7 +65,7 @@ async def profile_two_factor_settings(
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "dashboard/profile/2fa_settings.html",
+        "profile/2fa_settings.html",
         {
             "title": "Two-factor authentication",
             "user": current_user,
@@ -92,7 +92,7 @@ async def profile_two_factor_setup(
 
     return templates.TemplateResponse(
         request,
-        "dashboard/two_factor.html",
+        "profile/two_factor.html",
         {
             "title": "2FA Setup",
             "user": current_user,
@@ -127,7 +127,7 @@ async def profile_two_factor_backup_codes(
 
     return templates.TemplateResponse(
         request,
-        "dashboard/backup_codes.html",
+        "profile/backup_codes.html",
         {
             "title": "Backup Codes",
             "user": current_user,
@@ -142,7 +142,7 @@ async def profile_deactivate_account(
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "dashboard/profile/deactivate_account.html",
+        "profile/deactivate_account.html",
         {
             "title": "Deactivate account",
             "user": current_user,
@@ -155,7 +155,7 @@ async def profile_deactivate_account(
 async def profile(request: Request, current_user: User = Depends(get_current_user)) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "dashboard/profile/index.html",
+        "profile/index.html",
         {
             "title": "Profile",
             "user": current_user,
@@ -183,7 +183,7 @@ async def update_profile(
     except ValidationError as exc:
         return templates.TemplateResponse(
             request,
-            "dashboard/profile/index.html",
+            "profile/index.html",
             {
                 "title": "Profile",
                 "user": current_user,
@@ -202,7 +202,7 @@ async def update_profile(
         if existing:
             return templates.TemplateResponse(
                 request,
-                "dashboard/profile/index.html",
+                "profile/index.html",
                 {
                     "title": "Profile",
                     "user": current_user,
@@ -216,7 +216,7 @@ async def update_profile(
     if has_email_change and not session_step_up_is_fresh(current_session):
         return templates.TemplateResponse(
             request,
-            "dashboard/profile/index.html",
+            "profile/index.html",
             {
                 "title": "Profile",
                 "user": current_user,
@@ -351,7 +351,7 @@ async def disable_2fa(
     except ValidationError:
         return templates.TemplateResponse(
             request,
-            "dashboard/profile/2fa_settings.html",
+            "profile/2fa_settings.html",
             {
                 "title": "Two-factor authentication",
                 "user": current_user,
@@ -364,7 +364,7 @@ async def disable_2fa(
     if not verify_password(payload.password, current_user.password_hash):
         return templates.TemplateResponse(
             request,
-            "dashboard/profile/2fa_settings.html",
+            "profile/2fa_settings.html",
             {
                 "title": "Two-factor authentication",
                 "user": current_user,
@@ -411,7 +411,7 @@ async def change_password(
     except ValidationError as exc:
         return templates.TemplateResponse(
             request,
-            "dashboard/profile/change_password.html",
+            "profile/change_password.html",
             {
                 "title": "Change password",
                 "user": current_user,
@@ -424,7 +424,7 @@ async def change_password(
     if not verify_password(payload.current_password, current_user.password_hash):
         return templates.TemplateResponse(
             request,
-            "dashboard/profile/change_password.html",
+            "profile/change_password.html",
             {
                 "title": "Change password",
                 "user": current_user,
@@ -458,7 +458,7 @@ async def deactivate_account(
     except ValidationError:
         return templates.TemplateResponse(
             request,
-            "dashboard/profile/deactivate_account.html",
+            "profile/deactivate_account.html",
             {
                 "title": "Deactivate account",
                 "user": current_user,
@@ -471,7 +471,7 @@ async def deactivate_account(
     if not verify_password(payload.password, current_user.password_hash):
         return templates.TemplateResponse(
             request,
-            "dashboard/profile/deactivate_account.html",
+            "profile/deactivate_account.html",
             {
                 "title": "Deactivate account",
                 "user": current_user,

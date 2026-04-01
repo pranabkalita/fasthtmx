@@ -78,7 +78,7 @@ async def sessions_page(
     ).scalars().all()
     return templates.TemplateResponse(
         request,
-        "dashboard/sessions.html",
+        "profile/sessions.html",
         {
             "title": "Sessions",
             "user": current_user,
