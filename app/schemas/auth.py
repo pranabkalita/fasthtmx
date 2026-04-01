@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.schemas._common import normalize_email
+from app.services.password_policy import validate_password_confirmation, validate_strong_password
 
 
 class RegistrationForm(BaseModel):
     email: str
     full_name: str = ""
     password: str
+    confirm_password: str
 
     @field_validator("email")
     @classmethod
@@ -26,9 +28,21 @@ class RegistrationForm(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, value: str) -> str:
-        if len(value) < 8:
-            raise ValueError("Password must be at least 8 characters.")
+        error = validate_strong_password(value, label="Password")
+        if error:
+            raise ValueError(error)
         return value
+
+    @model_validator(mode="after")
+    def validate_password_match(self) -> "RegistrationForm":
+        error = validate_password_confirmation(
+            self.password,
+            self.confirm_password,
+            label="Password",
+        )
+        if error:
+            raise ValueError(error)
+        return self
 
 
 class LoginForm(BaseModel):

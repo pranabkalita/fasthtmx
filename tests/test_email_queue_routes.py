@@ -70,7 +70,12 @@ def test_register_queues_verification_email(test_client, mock_email_queue):
 
     response = test_client.post(
         "/register",
-        data={"email": email, "full_name": "Queue Test", "password": "Password123"},
+        data={
+            "email": email,
+            "full_name": "Queue Test",
+            "password": "Password123!",
+            "confirm_password": "Password123!",
+        },
         follow_redirects=False,
     )
 
@@ -96,7 +101,12 @@ def test_register_defers_email_when_queue_fails(test_client, mock_email_queue):
 
     response = test_client.post(
         "/register",
-        data={"email": email, "full_name": "Queue Fail", "password": "Password123"},
+        data={
+            "email": email,
+            "full_name": "Queue Fail",
+            "password": "Password123!",
+            "confirm_password": "Password123!",
+        },
         follow_redirects=False,
     )
 

@@ -73,12 +73,17 @@ async def _delete_user_related_rows(*, email: str | None = None, user_id: str | 
 
 def test_register_verify_login_and_dashboard_flow(test_client):
     email = f"it-flow-{uuid4().hex[:8]}@example.com"
-    password = "Password123"
+    password = "Password123!"
     _dispose_engine()
 
     register_response = test_client.post(
         "/register",
-        data={"email": email, "full_name": "Flow User", "password": password},
+        data={
+            "email": email,
+            "full_name": "Flow User",
+            "password": password,
+            "confirm_password": password,
+        },
         follow_redirects=False,
     )
     assert register_response.status_code == 303

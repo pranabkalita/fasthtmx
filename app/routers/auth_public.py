@@ -99,6 +99,7 @@ async def register(
     email: str = Form(...),
     full_name: str = Form(""),
     password: str = Form(...),
+    confirm_password: str = Form(...),
     db: AsyncSession = Depends(get_db_session),
     redis: Redis = Depends(get_redis),
 ) -> HTMLResponse:
@@ -110,6 +111,7 @@ async def register(
                 "email": email,
                 "full_name": full_name,
                 "password": password,
+                "confirm_password": confirm_password,
             }
         )
     except ValidationError as exc:
