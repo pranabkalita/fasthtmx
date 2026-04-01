@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import io
 import secrets
+import logging
 from typing import Callable
 
 from fastapi import HTTPException, Request, Response, status
@@ -14,6 +14,7 @@ CSRF_FORM_FIELD = "csrf_token"
 CSRF_HEADER_NAME = "X-CSRF-Token"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def generate_csrf_token() -> str:
@@ -60,6 +61,10 @@ async def csrf_dispatch(request: Request, call_next: Callable[[Request], Respons
     try:
         await validate_csrf(request)
     except HTTPException as exc:
+        logger.warning(
+            "csrf_validation_failed",
+            extra={"path": request.url.path, "method": request.method, "detail": exc.detail},
+        )
         response = JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
         if request.cookies.get(CSRF_COOKIE_NAME) != csrf_token:
             response.set_cookie(

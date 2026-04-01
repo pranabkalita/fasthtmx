@@ -1,7 +1,8 @@
 import pytest
 from fastapi import HTTPException
+from fastapi import Request
 
-from app.rate_limit import LimitRule, RateLimiter, safe_identity
+from app.rate_limit import LimitRule, RateLimiter, get_ip, safe_identity
 
 
 class _Pipeline:
@@ -54,3 +55,15 @@ async def test_rate_limiter_blocks_after_limit() -> None:
 def test_safe_identity_normalizes() -> None:
     assert safe_identity("  Alice@example.com ") == "alice@example.com"
     assert safe_identity(None) == "unknown"
+
+
+def test_get_ip_without_forwarded_headers() -> None:
+    scope = {
+        "type": "http",
+        "headers": [],
+        "client": ("203.0.113.1", 1234),
+        "method": "GET",
+        "path": "/",
+    }
+    request = Request(scope)
+    assert get_ip(request) == "203.0.113.1"

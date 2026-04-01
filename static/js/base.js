@@ -166,5 +166,23 @@
     }
   });
 
+  // Guardrail: prevent HTMX partial swaps across guest/auth layout boundaries.
+  document.addEventListener('htmx:beforeRequest', (event) => {
+    const detail = event.detail || {};
+    const path = String(detail.pathInfo && detail.pathInfo.requestPath || '');
+    const trigger = detail.elt;
+    if (!path || !trigger || !(trigger instanceof Element)) {
+      return;
+    }
+
+    const crossBoundaryNode = trigger.closest('[data-layout-nav="cross"]');
+    if (!crossBoundaryNode) {
+      return;
+    }
+
+    event.preventDefault();
+    window.location.assign(path);
+  });
+
   window.showToast = showToast;
 })();

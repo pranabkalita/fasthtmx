@@ -1,7 +1,9 @@
 import hashlib
 import secrets
+import base64
 from datetime import UTC, datetime
 
+from cryptography.fernet import Fernet, InvalidToken
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from passlib.context import CryptContext
 
@@ -10,6 +12,15 @@ from app.config import get_settings
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 serializer = URLSafeTimedSerializer(settings.secret_key)
+
+
+def _build_fernet() -> Fernet:
+    # Derive a stable 32-byte key from SECRET_KEY.
+    digest = hashlib.sha256(settings.secret_key.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+fernet = _build_fernet()
 
 
 TOKEN_PURPOSE_VERIFY = "verify_email"
@@ -30,6 +41,17 @@ def generate_raw_token() -> str:
 
 def hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def encrypt_secret(value: str) -> str:
+    return fernet.encrypt(value.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_secret(value: str) -> str | None:
+    try:
+        return fernet.decrypt(value.encode("utf-8")).decode("utf-8")
+    except (InvalidToken, ValueError):
+        return None
 
 
 def issue_signed_token(subject: str, purpose: str) -> str:

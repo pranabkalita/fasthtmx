@@ -7,6 +7,7 @@ def _context() -> dict[str, object]:
         "preheader": "Test preheader",
         "action_url": "https://example.com/action",
         "expires_hours": 24,
+        "expires_minutes": 30,
         "user_name": "Pranab",
     }
 

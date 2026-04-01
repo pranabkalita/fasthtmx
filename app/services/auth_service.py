@@ -20,6 +20,8 @@ from app.db.models import (
 from app.security import (
     TOKEN_PURPOSE_RESET,
     TOKEN_PURPOSE_VERIFY,
+    decrypt_secret,
+    encrypt_secret,
     generate_raw_token,
     hash_password,
     hash_token,
@@ -83,6 +85,7 @@ async def verify_email_token(db: AsyncSession, signed_token: str) -> User:
 
 async def is_locked_out(db: AsyncSession, email: str) -> bool:
     window_start = utcnow_naive() - timedelta(minutes=settings.login_lockout_minutes)
+    global_threshold = max(settings.login_max_attempts_account_window, settings.login_max_attempts)
     count_stmt = (
         select(func.count(LoginAttempt.id))
         .where(
@@ -92,10 +95,30 @@ async def is_locked_out(db: AsyncSession, email: str) -> bool:
                 LoginAttempt.attempted_at >= window_start,
             )
         )
-        .limit(settings.login_max_attempts)
+        .limit(global_threshold)
     )
     count = (await db.execute(count_stmt)).scalar_one()
-    return count >= settings.login_max_attempts
+    return count >= global_threshold
+
+
+async def is_locked_out_for_ip(db: AsyncSession, email: str, ip: str | None) -> bool:
+    if not ip:
+        return False
+    window_start = utcnow_naive() - timedelta(minutes=settings.login_lockout_minutes)
+    count_stmt = (
+        select(func.count(LoginAttempt.id))
+        .where(
+            and_(
+                LoginAttempt.email == email,
+                LoginAttempt.ip_address == ip,
+                LoginAttempt.success.is_(False),
+                LoginAttempt.attempted_at >= window_start,
+            )
+        )
+        .limit(settings.login_max_attempts_per_ip)
+    )
+    count = (await db.execute(count_stmt)).scalar_one()
+    return count >= settings.login_max_attempts_per_ip
 
 
 async def record_login_attempt(db: AsyncSession, email: str, ip: str | None, success: bool) -> None:
@@ -160,7 +183,7 @@ async def revoke_all_sessions(db: AsyncSession, user_id: str) -> None:
 async def create_reset_token(db: AsyncSession, user_id: str) -> tuple[str, datetime]:
     raw_token = generate_raw_token()
     token_hash = hash_token(raw_token)
-    expires_at = utcnow_naive() + timedelta(minutes=30)
+    expires_at = utcnow_naive() + timedelta(minutes=settings.reset_token_expiry_minutes)
     db.add(PasswordResetToken(user_id=user_id, token_hash=token_hash, expires_at=expires_at))
     await db.commit()
     signed = issue_signed_token(raw_token, TOKEN_PURPOSE_RESET)
@@ -168,7 +191,7 @@ async def create_reset_token(db: AsyncSession, user_id: str) -> tuple[str, datet
 
 
 async def consume_reset_token(db: AsyncSession, signed_token: str, new_password: str) -> User:
-    raw_token = load_signed_token(signed_token, TOKEN_PURPOSE_RESET, 60 * 30)
+    raw_token = load_signed_token(signed_token, TOKEN_PURPOSE_RESET, 60 * settings.reset_token_expiry_minutes)
     if not raw_token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
 
@@ -207,6 +230,22 @@ def build_totp_uri(user: User) -> tuple[str, str]:
 def verify_totp(secret: str, code: str) -> bool:
     totp = pyotp.TOTP(secret)
     return totp.verify(code, valid_window=1)
+
+
+def get_user_totp_secret(user: User) -> str | None:
+    encrypted = user.two_factor_secret_encrypted
+    if encrypted:
+        return decrypt_secret(encrypted)
+    return user.two_factor_secret
+
+
+def set_user_totp_secret(user: User, secret: str | None) -> None:
+    if secret:
+        user.two_factor_secret_encrypted = encrypt_secret(secret)
+    else:
+        user.two_factor_secret_encrypted = None
+    # Keep legacy column empty going forward.
+    user.two_factor_secret = None
 
 
 def generate_backup_code_values(count: int = 8) -> list[str]:

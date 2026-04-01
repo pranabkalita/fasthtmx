@@ -19,6 +19,7 @@ alembic==1.15.2
 passlib[bcrypt]==1.7.4
 bcrypt==3.2.2
 itsdangerous==2.2.0
+cryptography==44.0.2
 pyotp==2.9.0
 qrcode[pil]==8.1
 

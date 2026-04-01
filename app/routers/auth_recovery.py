@@ -73,7 +73,7 @@ async def forgot_password(
                     "subject": "Reset your password",
                     "preheader": "Reset your FastAuth password securely.",
                     "action_url": reset_link,
-                    "expires_hours": 24,
+                    "expires_minutes": settings.reset_token_expiry_minutes,
                 },
                 metadata={
                     "user_id": user.id,
@@ -91,7 +91,7 @@ async def forgot_password(
                     "subject": "Reset your password",
                     "preheader": "Reset your FastAuth password securely.",
                     "action_url": reset_link,
-                    "expires_hours": 24,
+                    "expires_minutes": settings.reset_token_expiry_minutes,
                 },
                 metadata={
                     "user_id": user.id,

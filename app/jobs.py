@@ -4,11 +4,19 @@ from datetime import UTC, datetime, timedelta
 import logging
 from typing import Any
 
-from sqlalchemy import delete
+from sqlalchemy import delete, or_, select
 
 from app.config import get_settings
 from app.db.database import AsyncSessionLocal
-from app.db.models import DeferredEmailJob, User
+from app.db.models import (
+    DeferredEmailJob,
+    EmailVerificationToken,
+    LoginAttempt,
+    PasswordResetToken,
+    Session,
+    User,
+)
+from app.services.auth_service import set_user_totp_secret
 from app.services.deferred_email_service import fetch_due_deferred_email_jobs, parse_context, parse_recipients
 from app.services.email_service import send_templated_email
 from app.services.time import utcnow_naive
@@ -134,3 +142,62 @@ async def retry_deferred_email_jobs(ctx: dict | None = None) -> int:
             await session.commit()
 
     return processed
+
+
+async def backfill_two_factor_secrets(ctx: dict | None = None) -> int:
+    _ = ctx
+    updated = 0
+    async with AsyncSessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(User).where(
+                    User.two_factor_secret.is_not(None),
+                    or_(
+                        User.two_factor_secret_encrypted.is_(None),
+                        User.two_factor_secret_encrypted == "",
+                    ),
+                )
+            )
+        ).scalars().all()
+        for row in rows:
+            if not row.two_factor_secret:
+                continue
+            set_user_totp_secret(row, row.two_factor_secret)
+            updated += 1
+        if updated:
+            await session.commit()
+    return updated
+
+
+async def cleanup_expired_auth_artifacts(ctx: dict | None = None) -> int:
+    _ = ctx
+    now = utcnow_naive()
+    login_cutoff = now - timedelta(days=30)
+    async with AsyncSessionLocal() as session:
+        session_result = await session.execute(delete(Session).where(Session.expires_at < now))
+        verify_result = await session.execute(
+            delete(EmailVerificationToken).where(
+                or_(
+                    EmailVerificationToken.expires_at < now,
+                    EmailVerificationToken.consumed_at.is_not(None),
+                )
+            )
+        )
+        reset_result = await session.execute(
+            delete(PasswordResetToken).where(
+                or_(
+                    PasswordResetToken.expires_at < now,
+                    PasswordResetToken.consumed_at.is_not(None),
+                )
+            )
+        )
+        attempt_result = await session.execute(
+            delete(LoginAttempt).where(LoginAttempt.attempted_at < login_cutoff)
+        )
+        await session.commit()
+    return int(
+        (session_result.rowcount or 0)
+        + (verify_result.rowcount or 0)
+        + (reset_result.rowcount or 0)
+        + (attempt_result.rowcount or 0)
+    )

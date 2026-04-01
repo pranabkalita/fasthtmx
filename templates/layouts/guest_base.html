@@ -19,11 +19,10 @@
     @keyframes progress-grow { 0% { width: 0; } 70% { width: 72%; } 100% { width: 84%; } }
   </style>
 </head>
-<body hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML" hx-push-url="true">
+<body data-layout="guest" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML" hx-push-url="true">
   <div id="top-progress" aria-hidden="true"></div>
   <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
-
-  <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur">
+  <header id="guest-top-nav" class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur">
     <div class="mx-auto flex w-[min(1120px,calc(100%-2rem))] items-center justify-between py-3">
       <a href="/" class="flex items-center gap-2">
         <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-xs font-extrabold text-white">FA</span>
@@ -36,7 +35,8 @@
       <nav class="hidden items-center gap-1 sm:flex">
         <a href="/" class="rounded-lg px-3 py-2 text-sm font-medium {{ 'bg-emerald-50 text-emerald-700' if request.url.path == '/' else 'text-slate-600 hover:bg-slate-100' }}">Home</a>
         {% if auth_user %}
-          <a href="/dashboard" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Dashboard</a>
+          {# Cross-layout (guest -> auth) nav must be full page load to avoid shell leakage. #}
+          <a href="/dashboard" data-layout-nav="cross" hx-boost="false" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Dashboard</a>
           <form action="/logout" method="post" hx-boost="false">
             <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Logout</button>
           </form>
@@ -48,7 +48,7 @@
 
       <div class="flex items-center gap-2 sm:hidden">
         {% if auth_user %}
-          <a href="/dashboard" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700">Dashboard</a>
+          <a href="/dashboard" data-layout-nav="cross" hx-boost="false" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700">Dashboard</a>
           <form action="/logout" method="post" hx-boost="false">
             <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">Logout</button>
           </form>
@@ -62,7 +62,6 @@
 
   <main class="w-[min(1120px,calc(100%-2rem))] mx-auto my-6">
     {% include "components/toasts.html" %}
-
     {% block content %}{% endblock %}
   </main>
 

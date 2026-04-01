@@ -26,8 +26,10 @@ from app.security import hash_password, verify_password
 from app.services.auth_service import (
     build_totp_uri,
     create_email_verification_token,
+    get_user_totp_secret,
     reset_backup_codes,
     revoke_all_sessions,
+    set_user_totp_secret,
     verify_totp,
 )
 from app.services.audit_service import write_audit_log
@@ -65,6 +67,7 @@ async def profile_two_factor_settings(
         {
             "title": "Two-factor authentication",
             "user": current_user,
+            "two_factor_secret_available": bool(get_user_totp_secret(current_user)),
             "profile_section": "two_factor",
         },
     )
@@ -307,7 +310,7 @@ async def enable_2fa(
         return RedirectResponse(url="/profile/2fa/setup", status_code=status.HTTP_303_SEE_OTHER)
 
     current_user.two_factor_enabled = True
-    current_user.two_factor_secret = payload.secret
+    set_user_totp_secret(current_user, payload.secret)
     await db.commit()
     backup_codes = await reset_backup_codes(db, current_user.id)
     await write_audit_log(db, action="2FA_ENABLED", target="user", user_id=current_user.id, request=request)
@@ -357,7 +360,7 @@ async def disable_2fa(
         )
 
     current_user.two_factor_enabled = False
-    current_user.two_factor_secret = None
+    set_user_totp_secret(current_user, None)
     await db.commit()
     await write_audit_log(db, action="2FA_DISABLED", target="user", user_id=current_user.id, request=request)
     add_toast(request, type="success", message="2FA has been disabled for your account.")

@@ -24,7 +24,9 @@ from app.services.auth_service import (
     create_email_verification_token,
     create_session,
     create_user,
+    get_user_totp_secret,
     is_locked_out,
+    is_locked_out_for_ip,
     record_login_attempt,
     verify_email_token,
     verify_totp,
@@ -339,11 +341,18 @@ async def login(
             status_code=status.HTTP_200_OK if is_htmx else status.HTTP_401_UNAUTHORIZED,
         )
 
-    if await is_locked_out(db, payload.email):
+    locked_for_ip = await is_locked_out_for_ip(db, payload.email, ip)
+    locked_for_account_window = await is_locked_out(db, payload.email)
+    if locked_for_ip or locked_for_account_window:
+        lock_reason = (
+            "Too many failed attempts from this network."
+            if locked_for_ip
+            else "Too many failed attempts for this account."
+        )
         return render_login_page(
             request,
             error=(
-                "Too many failed attempts. Please wait "
+                f"{lock_reason} Please wait "
                 f"{settings.login_lockout_minutes} minutes before trying again."
             ),
             email_value=payload.email,
@@ -380,9 +389,8 @@ async def login(
                 status_code=status.HTTP_200_OK if is_htmx else status.HTTP_401_UNAUTHORIZED,
             )
 
-        totp_valid = bool(
-            user.two_factor_secret and verify_totp(user.two_factor_secret, payload.two_factor_code)
-        )
+        user_totp_secret = get_user_totp_secret(user)
+        totp_valid = bool(user_totp_secret and verify_totp(user_totp_secret, payload.two_factor_code))
         backup_valid = False
         if not totp_valid:
             backup_valid = await consume_backup_code(db, user.id, payload.two_factor_code)

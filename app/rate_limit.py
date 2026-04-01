@@ -7,6 +7,10 @@ from fastapi import Request
 from fastapi import HTTPException, status
 from redis.asyncio import Redis
 
+from app.config import get_settings
+
+settings = get_settings()
+
 
 @dataclass(slots=True)
 class LimitRule:
@@ -44,8 +48,17 @@ def safe_identity(value: str | None) -> str:
 
 
 def get_ip(request: Request) -> str:
-    if request.client:
-        return request.client.host
+    client_ip = request.client.host if request.client else "unknown"
+    if not settings.use_forwarded_headers:
+        return client_ip
+    if client_ip not in settings.trusted_proxy_ip_set:
+        return client_ip
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if not forwarded:
+        return client_ip
+    first_hop = forwarded.split(",")[0].strip()
+    if first_hop:
+        return first_hop
     return "unknown"
 
 

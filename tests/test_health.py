@@ -23,3 +23,12 @@ def test_queue_health_endpoint_reports_unhealthy():
 
     assert response.status_code == 503
     assert response.json() == {"ok": False, "service": "job_queue"}
+
+
+def test_security_headers_present():
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.headers.get("x-frame-options") == "DENY"
+    assert response.headers.get("x-content-type-options") == "nosniff"
+    assert response.headers.get("referrer-policy") == "strict-origin-when-cross-origin"

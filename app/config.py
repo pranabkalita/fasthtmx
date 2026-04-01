@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     session_cookie_name: str = Field(alias="SESSION_COOKIE_NAME", default="session_id")
     session_max_age: int = Field(alias="SESSION_MAX_AGE", default=604800)
+    reset_token_expiry_minutes: int = Field(alias="RESET_TOKEN_EXPIRY_MINUTES", default=30)
 
     mail_username: str = Field(alias="MAIL_USERNAME")
     mail_password: str = Field(alias="MAIL_PASSWORD")
@@ -36,8 +37,18 @@ class Settings(BaseSettings):
     mail_ssl_tls: bool = Field(alias="MAIL_SSL_TLS", default=False)
 
     login_max_attempts: int = Field(alias="LOGIN_MAX_ATTEMPTS", default=5)
+    login_max_attempts_per_ip: int = Field(alias="LOGIN_MAX_ATTEMPTS_PER_IP", default=5)
+    login_max_attempts_account_window: int = Field(alias="LOGIN_MAX_ATTEMPTS_ACCOUNT_WINDOW", default=20)
     login_lockout_minutes: int = Field(alias="LOGIN_LOCKOUT_MINUTES", default=15)
     account_purge_days: int = Field(alias="ACCOUNT_PURGE_DAYS", default=30)
+    trusted_proxy_ips: str = Field(alias="TRUSTED_PROXY_IPS", default="")
+    use_forwarded_headers: bool = Field(alias="USE_FORWARDED_HEADERS", default=False)
+    csp_enabled: bool = Field(alias="CSP_ENABLED", default=True)
+    csp_report_only: bool = Field(alias="CSP_REPORT_ONLY", default=False)
+
+    @property
+    def trusted_proxy_ip_set(self) -> set[str]:
+        return {part.strip() for part in self.trusted_proxy_ips.split(",") if part.strip()}
 
     @property
     def database_url(self) -> str:

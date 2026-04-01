@@ -39,6 +39,7 @@ REDIS_PASSWORD=
 
 SESSION_COOKIE_NAME=session_id
 SESSION_MAX_AGE=604800
+RESET_TOKEN_EXPIRY_MINUTES=30
 
 MAIL_USERNAME=your-smtp-user
 MAIL_PASSWORD=your-smtp-password
@@ -50,8 +51,14 @@ MAIL_STARTTLS=true
 MAIL_SSL_TLS=false
 
 LOGIN_MAX_ATTEMPTS=5
+LOGIN_MAX_ATTEMPTS_PER_IP=5
+LOGIN_MAX_ATTEMPTS_ACCOUNT_WINDOW=20
 LOGIN_LOCKOUT_MINUTES=15
 ACCOUNT_PURGE_DAYS=30
+USE_FORWARDED_HEADERS=true
+TRUSTED_PROXY_IPS=127.0.0.1
+CSP_ENABLED=true
+CSP_REPORT_ONLY=false
 ```
 
 Production rules:
@@ -60,6 +67,7 @@ Production rules:
 2. Set `APP_URL` to the real public HTTPS URL
 3. Use a strong random `SECRET_KEY`
 4. Use a real SMTP provider; queued email still depends on valid SMTP credentials
+5. If running behind a reverse proxy, set `USE_FORWARDED_HEADERS=true` and list trusted proxy IPs
 
 ## VPS Packages
 
@@ -402,6 +410,9 @@ At minimum:
 5. Do not expose MySQL or Redis publicly unless necessary
 6. Keep the VPS updated with security patches
 7. Protect `.env` file permissions
+8. Keep `TRUSTED_PROXY_IPS` limited to known proxy hosts only
+
+The app now sets these headers by default (when enabled): HSTS, CSP, X-Frame-Options, X-Content-Type-Options, and Referrer-Policy.
 
 Example permission hardening:
 

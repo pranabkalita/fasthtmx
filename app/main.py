@@ -10,6 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.cache import redis_client
 from app.config import get_settings
 from app.middleware.csrf import csrf_dispatch
+from app.middleware.security_headers import security_headers_dispatch
 from app.routers import audit, auth, dashboard, email, profile, queue, sessions
 from app.services.job_queue import close_job_queue, is_job_queue_healthy
 from app.templating import templates
@@ -32,6 +33,7 @@ app.add_middleware(
     https_only=not settings.debug,
 )
 app.middleware("http")(csrf_dispatch)
+app.middleware("http")(security_headers_dispatch)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
