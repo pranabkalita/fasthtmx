@@ -1,11 +1,6 @@
-{% extends 'base.html' %}
-{% set hide_shell_header = true %}
-{% set fluid_layout = true %}
+{% extends 'layouts/dashboard_base.html' %}
 {% set active_page = 'two-factor' %}
-{% block content %}
-<section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
-  {% include 'components/dashboard_sidebar.html' %}
-
+{% block dashboard_body %}
   <section class="mx-auto w-full max-w-xl rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
     <h1 class="mb-2 text-base font-semibold text-slate-900">Two-Factor Authentication</h1>
     <p class="mb-4 text-sm text-slate-600">Scan this QR code in your authenticator app, then confirm with a 6-digit code.</p>
@@ -16,5 +11,4 @@
       <button type="submit" class="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500">Enable 2FA</button>
     </form>
   </section>
-</section>
 {% endblock %}

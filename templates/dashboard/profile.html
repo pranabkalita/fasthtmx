@@ -1,12 +1,7 @@
-{% extends 'base.html' %}
-{% set hide_shell_header = true %}
-{% set fluid_layout = true %}
+{% extends 'layouts/dashboard_base.html' %}
 {% set active_page = 'profile' %}
-{% block content %}
-<section class="grid gap-5 pt-14 lg:pt-0 lg:grid-cols-[260px_1fr]">
-  {% include 'components/dashboard_sidebar.html' %}
-
-  <div class="space-y-5">
+{% block dashboard_body %}
+  <div class="space-y-4">
     <section class="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-white p-5 shadow-sm">
       <p class="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Account Settings</p>
       <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">Profile & Security</h1>
@@ -113,5 +108,4 @@
       </form>
     </article>
   </div>
-</section>
 {% endblock %}

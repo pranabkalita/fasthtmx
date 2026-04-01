@@ -1,11 +1,6 @@
-{% extends 'base.html' %}
-{% set hide_shell_header = true %}
-{% set fluid_layout = true %}
+{% extends 'layouts/dashboard_base.html' %}
 {% set active_page = 'email_previews' %}
-{% block content %}
-<section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
-  {% include 'components/dashboard_sidebar.html' %}
-
+{% block dashboard_body %}
   <section class="space-y-4">
     <div class="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
@@ -31,5 +26,4 @@
       </div>
     </div>
   </section>
-</section>
 {% endblock %}

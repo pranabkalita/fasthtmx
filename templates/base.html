@@ -64,7 +64,7 @@
   </header>
   {% endif %}
 
-  <main class="{% if fluid_layout %}w-[calc(100%-1.5rem)] max-w-none mx-auto my-3{% else %}w-[min(1120px,calc(100%-2rem))] mx-auto my-6{% endif %}">
+  <main class="{% if fluid_layout %}{% if hide_shell_header %}w-[calc(100%-1.5rem)] max-w-none mx-auto pb-4 pt-0 lg:pt-8{% else %}w-[calc(100%-1.5rem)] max-w-none mx-auto my-3{% endif %}{% else %}w-[min(1120px,calc(100%-2rem))] mx-auto my-6{% endif %}">
     {% include "components/toasts.html" %}
 
     {% block content %}{% endblock %}

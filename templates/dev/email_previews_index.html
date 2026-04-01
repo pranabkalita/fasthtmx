@@ -1,11 +1,6 @@
-{% extends 'base.html' %}
-{% set hide_shell_header = true %}
-{% set fluid_layout = true %}
+{% extends 'layouts/dashboard_base.html' %}
 {% set active_page = 'email_previews' %}
-{% block content %}
-<section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
-  {% include 'components/dashboard_sidebar.html' %}
-
+{% block dashboard_body %}
   <div class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
     <h1 class="text-2xl font-bold tracking-tight text-slate-900">Email Previews</h1>
     <p class="mt-1 text-sm text-slate-500">Admin preview tools for transactional email templates.</p>
@@ -22,5 +17,4 @@
       {% endfor %}
     </ul>
   </div>
-</section>
 {% endblock %}

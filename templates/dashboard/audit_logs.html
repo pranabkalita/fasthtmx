@@ -1,11 +1,5 @@
-{% extends 'base.html' %}
-{% set hide_shell_header = true %}
-{% set fluid_layout = true %}
+{% extends 'layouts/dashboard_base.html' %}
 {% set active_page = 'audit' %}
-{% block content %}
-<section class="grid gap-4 pt-14 lg:pt-0 lg:grid-cols-[240px_1fr]">
-  {% include 'components/dashboard_sidebar.html' %}
-
+{% block dashboard_body %}
   {% include 'dashboard/_audit_logs_panel.html' %}
-</section>
 {% endblock %}
